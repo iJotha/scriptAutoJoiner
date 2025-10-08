@@ -6,10 +6,14 @@ local JOGO_ID = game.PlaceId
 local SOM_ID = "rbxassetid://9118823101" -- som de notificação
 local MIN_PLAYERS = 1
 local MAX_PLAYERS = 8
-local MAX_SERVERS_TO_COLLECT = 50 -- quantidade máxima de servidores para coletar antes de escolher aleatório
+local MAX_SERVERS_TO_COLLECT = 50 -- quantos servidores coletar antes de escolher aleatório
+
+local REQUEST_DELAY = 0.6        -- delay entre requisições HTTP (evita 429)
+local MAX_RETRIES_ON_429 = 4     -- tentativas com backoff quando 429
+local MAIN_LOOP_WAIT = 0.5       -- espera curta entre iterações do loop principal
 
 --------------------------------------------------------
--- SERVIÇOS
+-- SERVIÇOS & REQ
 --------------------------------------------------------
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
@@ -79,7 +83,50 @@ local function tocarSom()
 end
 
 --------------------------------------------------------
+-- REQUISIÇÃO HTTP COM TRATAMENTO DE 429 E BACKOFF
+--------------------------------------------------------
+local function safeRequest(url)
+	local attempt = 0
+	local backoff = REQUEST_DELAY
+
+	while attempt <= MAX_RETRIES_ON_429 do
+		local ok, response = pcall(function()
+			return req({Url = url, Method = "GET"})
+		end)
+
+		if not ok or not response then
+			warn("❌ Requisição falhou (pcall):", tostring(response))
+			-- espera antes de tentar novamente (pequeno backoff)
+			task.wait(backoff)
+			attempt = attempt + 1
+			backoff = backoff * 1.5
+		else
+			-- alguns executores usam response.Success / response.StatusCode
+			local status = response.StatusCode or response.statusCode or (response.Success and 200) or 0
+
+			-- se 429 -> esperar e tentar novamente (exponential backoff)
+			if status == 429 then
+				warn("⚠️ Too Many Requests (429). Aguardando " .. tostring(backoff) .. "s e tentando de novo.")
+				task.wait(backoff)
+				attempt = attempt + 1
+				backoff = backoff * 1.8
+			else
+				-- sucesso (ou outro erro de status, mas tentamos decodificar o Body)
+				if not response.Body and response.body then
+					response.Body = response.body
+				end
+				return response
+			end
+		end
+	end
+
+	-- após retries
+	return nil
+end
+
+--------------------------------------------------------
 -- FUNÇÃO DE BUSCA DE SERVIDOR (coletar até MAX_SERVERS_TO_COLLECT)
+-- mantém a lógica recursiva do seu código original
 --------------------------------------------------------
 local function findRandomServer(cursor, foundServers)
 	foundServers = foundServers or {}
@@ -90,14 +137,27 @@ local function findRandomServer(cursor, foundServers)
 		cursor and ("&cursor=" .. cursor) or ""
 	)
 
-	local response = req({Url = url, Method = "GET"})
-	if not response.Success then
-		warn("Erro ao buscar servidores: " .. (response.StatusMessage or "Erro desconhecido"))
-		return
+	local response = safeRequest(url)
+	if not response then
+		warn("Erro ao buscar servidores (safeRequest retornou nil).")
+		return false
 	end
 
-	local data = HttpService:JSONDecode(response.Body)
-	for _, server in ipairs(data.data) do
+	-- alguns executores retornam tabela com Body, outros com .Body string
+	if not response.Body and response.body then
+		response.Body = response.body
+	end
+
+	local ok, data = pcall(function()
+		return HttpService:JSONDecode(response.Body)
+	end)
+	if not ok or not data then
+		warn("Falha ao decodificar JSON da resposta.")
+		return false
+	end
+
+	-- coleta servidores válidos
+	for _, server in ipairs(data.data or {}) do
 		if server.playing == MIN_PLAYERS and server.maxPlayers == MAX_PLAYERS then
 			table.insert(foundServers, server.id)
 			if #foundServers >= MAX_SERVERS_TO_COLLECT then
@@ -106,7 +166,9 @@ local function findRandomServer(cursor, foundServers)
 		end
 	end
 
+	-- se ainda não coletou o suficiente e existir próxima página, continua (com delay)
 	if #foundServers < MAX_SERVERS_TO_COLLECT and data.nextPageCursor then
+		task.wait(REQUEST_DELAY) -- <-- delay entre páginas (evita 429)
 		return findRandomServer(data.nextPageCursor, foundServers)
 	else
 		if #foundServers == 0 then
@@ -114,19 +176,22 @@ local function findRandomServer(cursor, foundServers)
 			return false
 		end
 
-		-- Escolhe aleatoriamente um servidor da lista
+		-- escolhe aleatoriamente e teleporta
+		math.randomseed(tick() + os.time())
 		local randomIndex = math.random(1, #foundServers)
 		local serverId = foundServers[randomIndex]
 		print("Servidor aleatório encontrado! Teleportando para:", serverId)
-		TeleportService:TeleportToPlaceInstance(JOGO_ID, serverId, Players.LocalPlayer)
+		pcall(function()
+			TeleportService:TeleportToPlaceInstance(JOGO_ID, serverId, Players.LocalPlayer)
+		end)
 		return true
 	end
 end
 
 --------------------------------------------------------
--- LOOP PRINCIPAL
+-- LOOP PRINCIPAL (sem wait de 15s; só um pequeno MAIN_LOOP_WAIT)
 --------------------------------------------------------
-task.wait(5) -- tempo para carregar o jogo
+task.wait(5) -- espera inicial para o jogo carregar
 
 while true do
 	if existeBrainrotAcimaDoLimite(LIMITE_GERACAO) then
@@ -136,5 +201,7 @@ while true do
 		print("🔁 Nenhum Brainrot lucrativo. Buscando servidor aleatório...")
 		findRandomServer()
 	end
-	task.wait(15)
+
+	-- espera curta entre iterações (não causa 429; controle real do rate-limit é REQUEST_DELAY)
+	task.wait(MAIN_LOOP_WAIT)
 end

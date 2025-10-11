@@ -26,7 +26,7 @@ end
 --------------------------------------------------------
 -- GERA ID ÚNICO PARA ESTA SESSÃO
 --------------------------------------------------------
-local SESSION_ID = "vps_" .. HttpService:GenerateGUID(false):sub(1, 8)
+local SESSION_ID = "session_" .. HttpService:GenerateGUID(false)
 print("🆔 Sessão iniciada:", SESSION_ID)
 
 --------------------------------------------------------
@@ -60,13 +60,13 @@ local function coletarBrainrotsAcimaDoLimite(limite)
 		local podiums = plot:FindFirstChild("AnimalPodiums")
 		if podiums then
 			for _, podium in ipairs(podiums:GetChildren()) do
-				local nomeAnimal = podium.Name or "Desconhecido"
 				for _, obj in ipairs(podium:GetDescendants()) do
 					if obj:IsA("TextLabel") and obj.Text and obj.Text:find("/s") then
 						local valor = converterTextoGerado(obj.Text)
 						if valor >= limite then
+							local nome = (obj.Parent and obj.Parent.Name) or "Desconhecido"
 							table.insert(encontrados, {
-								nome = nomeAnimal,
+								nome = nome,
 								valor = valor
 							})
 						end
@@ -139,7 +139,7 @@ local function reserveServer()
 	local body = response.Body or response.body
 	local data = HttpService:JSONDecode(body)
 	if not data.success then
-		warn("❌ Proxy retornou erro: " .. (data.message or data.error or "unknown"))
+		warn("❌ Proxy retornou erro ou não há servidores disponíveis: " .. (data.message or data.error or "unknown"))
 		return nil
 	end
 	return data.server
@@ -151,35 +151,30 @@ end
 task.wait(5)
 
 while true do
-	print("🔍 Checando brainrots...")
 	local brainrots = coletarBrainrotsAcimaDoLimite(LIMITE_GERACAO)
 
 	if #brainrots > 0 then
 		print(string.format("💰 %d brainrots lucrativos encontrados (≥10M/s)", #brainrots))
 		tocarSom()
 
+		-- Envia todos encontrados ao app central
 		for _, b in ipairs(brainrots) do
-			print(string.format("   -> %s | $%.0f/s", b.nome, b.valor))
 			enviarBrainrotAoApp(b.nome, b.valor)
-			task.wait(0.5) -- pausa entre envios
 		end
 
-		print("⏳ Aguardando antes de trocar de servidor...")
-		task.wait(3)
-
+		-- Após terminar a checagem e enviar, trocar de servidor
+		print("🔁 Trocando de servidor após encontrar brainrots valiosos...")
 		local server = reserveServer()
 		if server then
-			print("🚀 Trocando para novo servidor:", server.id)
-			task.wait(1)
 			pcall(function()
 				TeleportService:TeleportToPlaceInstance(JOGO_ID, server.id, Players.LocalPlayer)
 			end)
-			break -- interrompe o loop após o teleporte
 		else
-			warn("❌ Nenhum servidor disponível. Tentará novamente.")
+			warn("❌ Nenhum servidor disponível no proxy para troca.")
 		end
+
 	else
-		print("🔁 Nenhum brainrot lucrativo encontrado.")
+		print("🔎 Nenhum brainrot lucrativo. Continuando checagem...")
 	end
 
 	task.wait(MAIN_LOOP_WAIT)

@@ -152,6 +152,7 @@ end)
 
 -- ======== BOTÕES / CONTROLE ========
 local brainrotButtons = {}
+local lastAddedBrainrot = nil -- ⚡ Armazena último item adicionado
 
 local function removeOldestIfNeeded()
 	while #brainrotButtons > MAX_BUTTONS do
@@ -162,6 +163,14 @@ end
 
 local function criarBotao(brainrot)
 	if not brainrot or not brainrot.jobId then return end
+
+	-- ⚡ Evita criar botão se for igual ao último adicionado
+	if lastAddedBrainrot and
+	   lastAddedBrainrot.jobId == brainrot.jobId and
+	   lastAddedBrainrot.nome == brainrot.nome and
+	   tostring(lastAddedBrainrot.valor) == tostring(brainrot.valor) then
+		return
+	end
 
 	local btn = Instance.new("TextButton")
 	btn.Size = UDim2.new(1, -10, 0, BUTTON_HEIGHT)
@@ -202,6 +211,9 @@ local function criarBotao(brainrot)
 
 	table.insert(brainrotButtons, 1, btn)
 	removeOldestIfNeeded()
+
+	-- ⚡ Atualiza último item adicionado
+	lastAddedBrainrot = brainrot
 end
 
 uiListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
@@ -235,4 +247,4 @@ spawn(function()
 	end
 end)
 
-print("[LibasPainel] GUI carregada (valores abreviados e sem filtro de repetição). Aguardando novas entradas...")
+print("[LibasPainel] GUI carregada (valores abreviados e sem duplicatas consecutivas). Aguardando novas entradas...")

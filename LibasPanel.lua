@@ -8,7 +8,7 @@ local UserInputService = game:GetService("UserInputService")
 local req = request or http_request
 
 -- URL do app-central
-local APP_URL = "https://d88a7c01-bd88-445a-9261-3fa89cc6f7c4-00-2h3cc3v0bgg8e.picard.replit.dev/api/list"
+local APP_URL = "https://renderbots.onrender.com/api/list"
 
 local player = Players.LocalPlayer
 

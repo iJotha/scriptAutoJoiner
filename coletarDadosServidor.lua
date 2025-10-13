@@ -127,7 +127,7 @@ local function reserveServer()
 end
 
 --------------------------------------------------------
--- ENVIAR PARA APP
+-- ENVIAR PARA APP CENTRAL (com delay)
 --------------------------------------------------------
 local function enviarParaAppCentral(nome, valor, jobId)
 	local payload = {
@@ -152,6 +152,9 @@ local function enviarParaAppCentral(nome, valor, jobId)
 	else
 		warn("❌ Falha ao enviar para app central")
 	end
+
+	-- ⏱️ Delay de 3 segundos após cada envio
+	task.wait(3)
 end
 
 --------------------------------------------------------
@@ -159,29 +162,34 @@ end
 --------------------------------------------------------
 task.wait(5)
 
-while true do
-	print("🔎 Checando Brainrots...")
-	local brainrots = checarBrainrots(LIMITE_GERACAO)
+print("🔎 Primeira verificação completa dos Brainrots...")
 
-	if #brainrots > 0 then
-		tocarSom()
-		for _, br in ipairs(brainrots) do
-			enviarParaAppCentral(br.nome, br.valor, game.JobId)
-		end
-	else
-		print("❌ Nenhum Brainrot lucrativo encontrado. Solicitando novo servidor...")
+-- Faz a verificação apenas uma vez
+local brainrots = checarBrainrots(LIMITE_GERACAO)
+
+if #brainrots > 0 then
+	tocarSom()
+	for _, br in ipairs(brainrots) do
+		enviarParaAppCentral(br.nome, br.valor, game.JobId)
 	end
+else
+	print("❌ Nenhum Brainrot lucrativo encontrado.")
+end
 
-	-- Sempre troca após checagem completa, mesmo se achou
+-- Após a primeira verificação, não verifica mais, apenas troca de servidores
+while true do
+	print("🌐 Tentando trocar de servidor...")
+
 	local server = reserveServer()
 	if server then
-		print("🌐 Teleportando para novo servidor:", server.id)
+		print("➡️ Teleportando para novo servidor:", server.id)
 		pcall(function()
 			TeleportService:TeleportToPlaceInstance(JOGO_ID, server.id, Players.LocalPlayer)
 		end)
 	else
-		warn("❌ Nenhum servidor disponível. Tentará novamente em seguida.")
+		warn("❌ Nenhum servidor disponível. Tentará novamente em 5 segundos.")
 	end
 
-	task.wait(MAIN_LOOP_WAIT)
+	-- ⏱️ Espera 5 segundos entre cada tentativa
+	task.wait(5)
 end

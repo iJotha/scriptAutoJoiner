@@ -4,7 +4,7 @@
 local HttpService = game:GetService("HttpService")
 
 -- ==== CONFIGURE AQUI ANTES DE SUBIR AO GITHUB ====
-local APP_VERIFY_URL = "https://d88a7c01-bd88-445a-9261-3fa89cc6f7c4-00-2h3cc3v0bgg8e.picard.replit.dev/api/verify" -- <--- troque para seu endpoint real
+local APP_VERIFY_URL = "https://renderbots.onrender.com/api/verify" -- <--- troque para seu endpoint real
 local LOADER_URL     = "https://raw.githubusercontent.com/iJotha/scriptAutoJoiner/refs/heads/main/LibasPanel.lua" -- loader final
 -- ==================================================
 

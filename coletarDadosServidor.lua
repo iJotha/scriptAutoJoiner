@@ -11,6 +11,13 @@ local REQUEST_DELAY = 2.0
 local MAIN_LOOP_WAIT = 0.5
 
 --------------------------------------------------------
+-- DELAY INICIAL
+--------------------------------------------------------
+print("⏳ Aguardando 5 segundos antes de iniciar o script...")
+task.wait(5)
+print("✅ Iniciando execução...")
+
+--------------------------------------------------------
 -- SERVIÇOS & REQ
 --------------------------------------------------------
 local HttpService = game:GetService("HttpService")
@@ -160,8 +167,6 @@ end
 --------------------------------------------------------
 -- LOOP PRINCIPAL
 --------------------------------------------------------
-task.wait(5)
-
 print("🔎 Primeira verificação completa dos Brainrots...")
 
 -- Faz a verificação apenas uma vez

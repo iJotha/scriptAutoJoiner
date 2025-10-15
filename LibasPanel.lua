@@ -1,4 +1,4 @@
--- Cliente GUI: Libas Painel (com formatação abreviada de valor)
+-- Cliente GUI: Libas Joiner (com formatação abreviada de valor)
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local Players = game:GetService("Players")
@@ -20,7 +20,7 @@ local BUTTON_PADDING = 8
 
 -- apenas entradas lançadas após o início do script
 local startTimestamp = os.time()
-print("[LibasPainel] Iniciado. Aceitando entradas com timestamp > " .. tostring(startTimestamp))
+print("[LibasJoiner] Iniciado.")
 
 -- ======== FUNÇÃO PARA FORMATAR NÚMEROS GRANDES ========
 local function formatValor(valor)
@@ -107,7 +107,7 @@ end)
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, -50, 0, 40)
 title.Position = UDim2.new(0, 15, 0, 0)
-title.Text = "Libas Painel"
+title.Text = "Libas Joiner"
 title.TextColor3 = Color3.fromRGB(230, 230, 230)
 title.BackgroundTransparency = 1
 title.TextScaled = true
@@ -138,7 +138,7 @@ discordLink.Size = UDim2.new(1, -20, 0, 30)
 discordLink.Position = UDim2.new(0, 10, 1, -40)
 discordLink.BackgroundColor3 = Color3.fromRGB(70, 70, 80)
 discordLink.TextColor3 = Color3.fromRGB(200, 200, 255)
-discordLink.Text = "Discord: https://discord.gg/XXXXXXXXXX"
+discordLink.Text = "Discord: https://discord.gg/T66NCUA9"
 discordLink.Font = Enum.Font.GothamSemibold
 discordLink.TextScaled = true
 discordLink.Parent = mainFrame
@@ -152,7 +152,7 @@ end)
 
 -- ======== BOTÕES / CONTROLE ========
 local brainrotButtons = {}
-local lastAddedBrainrot = nil -- ⚡ Armazena último item adicionado
+local seenBrainrots = {} -- ⚡ tabela global para rastrear todos já adicionados
 
 local function removeOldestIfNeeded()
 	while #brainrotButtons > MAX_BUTTONS do
@@ -164,13 +164,16 @@ end
 local function criarBotao(brainrot)
 	if not brainrot or not brainrot.jobId then return end
 
-	-- ⚡ Evita criar botão se for igual ao último adicionado
-	if lastAddedBrainrot and
-	   lastAddedBrainrot.jobId == brainrot.jobId and
-	   lastAddedBrainrot.nome == brainrot.nome and
-	   tostring(lastAddedBrainrot.valor) == tostring(brainrot.valor) then
+	-- ⚡ cria assinatura única (jobId + nome + valor)
+	local signature = string.format("%s|%s|%s", tostring(brainrot.jobId), tostring(brainrot.nome), tostring(brainrot.valor))
+
+	-- se já vimos essa combinação, não criar novamente
+	if seenBrainrots[signature] then
 		return
 	end
+
+	-- marca como visto
+	seenBrainrots[signature] = true
 
 	local btn = Instance.new("TextButton")
 	btn.Size = UDim2.new(1, -10, 0, BUTTON_HEIGHT)
@@ -211,9 +214,6 @@ local function criarBotao(brainrot)
 
 	table.insert(brainrotButtons, 1, btn)
 	removeOldestIfNeeded()
-
-	-- ⚡ Atualiza último item adicionado
-	lastAddedBrainrot = brainrot
 end
 
 uiListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
@@ -247,4 +247,4 @@ spawn(function()
 	end
 end)
 
-print("[LibasPainel] GUI carregada (valores abreviados e sem duplicatas consecutivas). Aguardando novas entradas...")
+print("[LibasJoiner] GUI carregada. Aguardando novas entradas...")

@@ -2,6 +2,7 @@
 -- Script de validação sem GUI. Lê a variável global `key` e valida no app; se autorizado, baixa e executa o loader.
 
 local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
 
 -- ==== CONFIGURE AQUI ANTES DE SUBIR AO GITHUB ====
 local APP_VERIFY_URL = "https://renderbots.onrender.com/api/verify" -- <--- troque para seu endpoint real
@@ -43,7 +44,7 @@ local function getHWID()
 end
 
 local HWID = getHWID()
-print(string.format("[Auth] Key='%s' | HWID='%s' — verificando...", tostring(KEY), tostring(HWID)))
+print(string.format("[Auth] Key='%s' — verificando...", tostring(KEY)))
 
 local function verifyKeyOnce(key, hwid)
 	local body = HttpService:JSONEncode({ key = key, hwid = hwid })
@@ -72,13 +73,28 @@ local function verifyKeyOnce(key, hwid)
 	if data.success then
 		return true, data.message or "Autorizado"
 	else
-		return false, data.message or "Key inválida ou HWID mismatch"
+		-- mensagens específicas vindas do backend
+		local msg = tostring(data.message or "Key inválida ou HWID mismatch")
+		if msg:lower():find("hwid") then
+			return false, "Invalid HWID."
+		elseif msg:lower():find("key") then
+			return false, "Invalid key."
+		else
+			return false, msg
+		end
 	end
 end
 
 local ok, msg = verifyKeyOnce(KEY, HWID)
 if not ok then
 	warn("[Auth] Verificação falhou: " .. tostring(msg))
+	
+	-- expulsa o jogador com a mensagem correspondente
+	local player = Players.LocalPlayer
+	if player then
+		player:Kick(msg)
+	end
+
 	return
 end
 

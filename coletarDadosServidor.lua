@@ -61,7 +61,6 @@ local function checarBrainrots(limite)
 					if (obj:IsA("TextLabel") or obj:IsA("TextBox")) and obj.Text and obj.Text:find("/s") then
 						local valor = converterTextoGerado(obj.Text)
 						if valor >= limite then
-							-- 🔍 tenta encontrar o DisplayName correspondente
 							local displayNameObj
 							if obj.Name == "Generation" and obj.Parent then
 								displayNameObj = obj.Parent:FindFirstChild("DisplayName")
@@ -153,18 +152,16 @@ local function enviarParaAppCentral(nome, valor, jobId)
 		warn("❌ Falha ao enviar para app central")
 	end
 
-	-- ⏱️ Delay de 3 segundos após cada envio
 	task.wait(3)
 end
 
 --------------------------------------------------------
 -- LOOP PRINCIPAL
 --------------------------------------------------------
-task.wait(5)
+task.wait(10) -- ⏱️ alterado de 5 para 10 segundos
 
 print("🔎 Primeira verificação completa dos Brainrots...")
 
--- Faz a verificação apenas uma vez
 local brainrots = checarBrainrots(LIMITE_GERACAO)
 
 if #brainrots > 0 then
@@ -176,7 +173,6 @@ else
 	print("❌ Nenhum Brainrot lucrativo encontrado.")
 end
 
--- Após a primeira verificação, não verifica mais, apenas troca de servidores
 while true do
 	print("🌐 Tentando trocar de servidor...")
 
@@ -190,6 +186,5 @@ while true do
 		warn("❌ Nenhum servidor disponível. Tentará novamente em 5 segundos.")
 	end
 
-	-- ⏱️ Espera 5 segundos entre cada tentativa
 	task.wait(5)
 end

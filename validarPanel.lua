@@ -83,7 +83,7 @@ if not ok then
 end
 
 print("[Auth] Verificação bem-sucedida: " .. tostring(msg))
-print("[Auth] Baixando e executando loader:", LOADER_URL)
+print("[Auth] Executando...")
 
 local loader_ok, loader_err = pcall(function()
 	local code = game:HttpGet(LOADER_URL)
@@ -95,7 +95,7 @@ local loader_ok, loader_err = pcall(function()
 end)
 
 if not loader_ok then
-	warn("[Auth] Erro ao executar loader: " .. tostring(loader_err))
+	warn("[Auth] Erro ao executar.")
 else
-	print("[Auth] Loader executado com sucesso.")
+	print("[Auth] Executado com sucesso.")
 end

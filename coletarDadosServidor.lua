@@ -187,7 +187,7 @@ end
 --------------------------------------------------------
 -- LOOP PRINCIPAL
 --------------------------------------------------------
-task.wait(10) -- ⏱️ atraso inicial para carregamento
+--task.wait(10) -- ⏱️ atraso inicial para carregamento
 
 print("🔎 Primeira verificação completa dos Brainrots...")
 

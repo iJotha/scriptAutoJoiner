@@ -9,6 +9,7 @@ local APP_URL = "https://renderbots.onrender.com/api/report"
 local VPS_ID = "vps_" .. game.JobId
 local REQUEST_DELAY = 2.0
 local MAIN_LOOP_WAIT = 0.5
+local TELEPORT_TIMEOUT = 120 -- tempo máximo (segundos) para travar no loading
 
 --------------------------------------------------------
 -- SERVIÇOS & REQ
@@ -23,6 +24,31 @@ if not req then
 	warn("Exploit não suporta request")
 	return
 end
+
+--------------------------------------------------------
+-- WATCHDOG DE CARREGAMENTO
+--------------------------------------------------------
+task.delay(TELEPORT_TIMEOUT, function()
+	if not game:IsLoaded() then
+		warn("⏰ Tempo limite de carregamento excedido. Reiniciando instância.")
+		game:Shutdown()
+	end
+end)
+
+--------------------------------------------------------
+-- MONITORAMENTO DE FALHAS DE TELEPORTE
+--------------------------------------------------------
+TeleportService.TeleportInitFailed:Connect(function(player, teleportResult, errorMessage)
+	warn("🚫 Teleporte falhou (init):", teleportResult, errorMessage)
+	task.wait(5)
+	game:Shutdown()
+end)
+
+TeleportService.TeleportFailed:Connect(function(player, teleportResult, errorMessage)
+	warn("🚫 Teleporte falhou:", teleportResult, errorMessage)
+	task.wait(5)
+	game:Shutdown()
+end)
 
 --------------------------------------------------------
 -- GERA ID ÚNICO
@@ -156,9 +182,42 @@ local function enviarParaAppCentral(nome, valor, jobId)
 end
 
 --------------------------------------------------------
+-- FUNÇÃO DE TELEPORTE SEGURA
+--------------------------------------------------------
+local function safeTeleport(serverId)
+	-- Espera o jogador carregar completamente
+	repeat task.wait() until Players.LocalPlayer and Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+
+	if not serverId or typeof(serverId) ~= "string" then
+		warn("⚠️ ID de servidor inválido recebido.")
+		return false
+	end
+
+	print("➡️ Teleportando para novo servidor:", serverId)
+	local success, err = pcall(function()
+		TeleportService:TeleportToPlaceInstance(JOGO_ID, serverId, Players.LocalPlayer)
+	end)
+
+	if not success then
+		warn("🚫 Erro ao teleportar:", err)
+		return false
+	end
+
+	-- watchdog pós-teleporte
+	task.delay(TELEPORT_TIMEOUT, function()
+		if not game:IsLoaded() then
+			warn("⏰ Teleporte travado no carregamento. Reiniciando instância.")
+			game:Shutdown()
+		end
+	end)
+
+	return true
+end
+
+--------------------------------------------------------
 -- LOOP PRINCIPAL
 --------------------------------------------------------
-task.wait(10) -- ⏱️ alterado de 5 para 10 segundos
+task.wait(10)
 
 print("🔎 Primeira verificação completa dos Brainrots...")
 
@@ -177,14 +236,16 @@ while true do
 	print("🌐 Tentando trocar de servidor...")
 
 	local server = reserveServer()
-	if server then
-		print("➡️ Teleportando para novo servidor:", server.id)
-		pcall(function()
-			TeleportService:TeleportToPlaceInstance(JOGO_ID, server.id, Players.LocalPlayer)
-		end)
+	if server and server.id then
+		local ok = safeTeleport(server.id)
+		if not ok then
+			warn("⚠️ Falha no teleporte. Tentando novamente em 10s.")
+			task.wait(10)
+		end
 	else
-		warn("❌ Nenhum servidor disponível. Tentará novamente em 5 segundos.")
+		warn("❌ Nenhum servidor disponível. Tentará novamente em 10 segundos.")
+		task.wait(10)
 	end
 
-	task.wait(5)
+	task.wait(MAIN_LOOP_WAIT)
 end

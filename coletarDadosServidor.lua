@@ -158,8 +158,6 @@ end
 --------------------------------------------------------
 -- LOOP PRINCIPAL
 --------------------------------------------------------
-task.wait(10) -- ⏱️ alterado de 5 para 10 segundos
-
 print("🔎 Primeira verificação completa dos Brainrots...")
 
 local brainrots = checarBrainrots(LIMITE_GERACAO)
@@ -172,6 +170,10 @@ if #brainrots > 0 then
 else
 	print("❌ Nenhum Brainrot lucrativo encontrado.")
 end
+
+-- 🕒 Espera 10 segundos antes de trocar de servidor
+print("⏳ Aguardando 10 segundos antes de trocar de servidor...")
+task.wait(10)
 
 while true do
 	print("🌐 Tentando trocar de servidor...")

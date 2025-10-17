@@ -126,7 +126,7 @@ local function reserveServer()
 end
 
 --------------------------------------------------------
--- ENVIAR PARA APP CENTRAL (com delay)
+-- ENVIAR PARA APP CENTRAL
 --------------------------------------------------------
 local function enviarParaAppCentral(nome, valor, jobId)
 	local payload = {
@@ -156,9 +156,38 @@ local function enviarParaAppCentral(nome, valor, jobId)
 end
 
 --------------------------------------------------------
+-- TELEPORTE SEGURO
+--------------------------------------------------------
+local function tentarTeleportar(placeId, serverId)
+	local sucesso = false
+	local tentativas = 0
+
+	while not sucesso and tentativas < 3 do
+		tentativas += 1
+		print(string.format("🌐 Tentando teleporte (%d/3)...", tentativas))
+
+		local ok, err = pcall(function()
+			TeleportService:TeleportToPlaceInstance(placeId, serverId, Players.LocalPlayer)
+		end)
+
+		if ok then
+			sucesso = true
+			print("✅ Teleporte iniciado com sucesso.")
+		else
+			warn("⚠️ Falha ao tentar teleporte:", err)
+			task.wait(3)
+		end
+	end
+
+	if not sucesso then
+		warn("❌ Teleporte falhou após 3 tentativas. Reiniciando processo...")
+	end
+end
+
+--------------------------------------------------------
 -- LOOP PRINCIPAL
 --------------------------------------------------------
-task.wait(10) -- ⏱️ alterado de 5 para 10 segundos
+task.wait(5) -- ⏱️ atraso inicial para carregamento
 
 print("🔎 Primeira verificação completa dos Brainrots...")
 
@@ -173,15 +202,16 @@ else
 	print("❌ Nenhum Brainrot lucrativo encontrado.")
 end
 
+--------------------------------------------------------
+-- CICLO DE TROCA DE SERVIDOR
+--------------------------------------------------------
 while true do
-	print("🌐 Tentando trocar de servidor...")
+	print("🌐 Solicitando novo servidor...")
 
 	local server = reserveServer()
-	if server then
+	if server and server.id then
 		print("➡️ Teleportando para novo servidor:", server.id)
-		pcall(function()
-			TeleportService:TeleportToPlaceInstance(JOGO_ID, server.id, Players.LocalPlayer)
-		end)
+		tentarTeleportar(JOGO_ID, server.id)
 	else
 		warn("❌ Nenhum servidor disponível. Tentará novamente em 5 segundos.")
 	end

@@ -173,7 +173,7 @@ end
 
 -- 🕒 Espera 10 segundos antes de trocar de servidor
 print("⏳ Aguardando 10 segundos antes de trocar de servidor...")
-task.wait(10)
+task.wait(30)
 
 while true do
 	print("🌐 Tentando trocar de servidor...")

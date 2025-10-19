@@ -61,7 +61,7 @@ local function checarBrainrots(limite)
 		if podiums then
 			for _, podium in ipairs(podiums:GetChildren()) do
 				for _, obj in ipairs(podium:GetDescendants()) do
-					if (obj:IsA("TextLabel") or obj:IsA("TextBox")) and obj.Text and obj.Text:find("/s") then
+					if (obj:IsA("TextLabel") or obj:IsA("TextBox")) and obj.Text and obj.Text:find("/S") then
 						local valor = converterTextoGerado(obj.Text)
 						if valor >= limite then
 							local displayNameObj
@@ -95,10 +95,10 @@ end
 -- SAFE REQUEST
 --------------------------------------------------------
 local function safeRequest(url)
-	task.wait(REQUEST_DELAY)
-	local response = req({Url = url, Method = "GET"})
-	if not response or not response.Success then
-		warn("❌ Falha na requisição HTTP.")
+	local ok, response = pcall(function()
+		return req({Url = url, Method = "GET"})
+	end)
+	if not ok or not response or not response.Success then
 		return nil
 	end
 	return response
@@ -111,8 +111,12 @@ local function reserveServer()
 	local url = string.format("%s/reserveServer?placeId=%s&sessionId=%s", PROXY_URL, JOGO_ID, SESSION_ID)
 	local response = safeRequest(url)
 	if not response then return nil end
+
 	local data = HttpService:JSONDecode(response.Body or response.body)
-	if not data.success then return nil end
+	if not data or not data.success or not data.server then
+		return nil
+	end
+
 	return data.server
 end
 
@@ -161,16 +165,36 @@ end
 --------------------------------------------------------
 -- LOOP DE TROCA DE SERVIDOR
 --------------------------------------------------------
+local ultimoServerID = nil
+local tentativa = 0
+
+print("⚙️ Iniciando loop de requisições...")
+
 while true do
+	task.wait(REQUEST_DELAY)
+	tentativa += 1
+
 	local server = reserveServer()
 	if server then
-		print("➡️ Teleportando para novo servidor:", server.id)
-		pcall(function()
-			TeleportService:TeleportToPlaceInstance(JOGO_ID, server.id, Players.LocalPlayer)
-		end)
-		break -- Sai do loop após teleporte
+		-- Ignora se for o mesmo servidor recebido antes
+		if ultimoServerID ~= server.id then
+			print(string.format("➡️ [%d] Novo servidor recebido: %s", tentativa, server.id))
+			ultimoServerID = server.id
+
+			local ok, result = pcall(function()
+				TeleportService:TeleportToPlaceInstance(JOGO_ID, server.id, Players.LocalPlayer)
+			end)
+
+			if ok then
+				print("🚀 Tentando entrar no servidor:", server.id)
+			else
+				warn("⚠️ Falha ao teleportar. Tentará novamente em " .. RETRY_DELAY .. "s.")
+				task.wait(RETRY_DELAY)
+			end
+		else
+			print(string.format("⚠️ [%d] Servidor repetido recebido (%s), aguardando o próximo.", tentativa, server.id))
+		end
 	else
-		warn("❌ Nenhum servidor disponível. Tentará novamente em " .. RETRY_DELAY .. "s.")
-		task.wait(RETRY_DELAY)
+		print(string.format("❌ [%d] Nenhum servidor disponível. Nova tentativa em %ss.", tentativa, REQUEST_DELAY))
 	end
 end

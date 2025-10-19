@@ -17,6 +17,7 @@ local POLL_INTERVAL = 1
 local MAX_BUTTONS = 50
 local BUTTON_HEIGHT = 50
 local BUTTON_PADDING = 8
+local FIXED_PLACE_ID = 109983668079237 -- 🔒 ID fixo
 
 -- apenas entradas lançadas após o início do script
 local startTimestamp = os.time()
@@ -208,7 +209,8 @@ local function criarBotao(brainrot)
 	btn.MouseButton1Click:Connect(function()
 		pcall(function()
 			print("Teleportando para:", brainrot.jobId)
-			TeleportService:TeleportToPlaceInstance(game.PlaceId, brainrot.jobId, Players.LocalPlayer)
+			-- 🔒 usa ID fixo no lugar de game.PlaceId
+			TeleportService:TeleportToPlaceInstance(FIXED_PLACE_ID, brainrot.jobId, Players.LocalPlayer)
 		end)
 	end)
 

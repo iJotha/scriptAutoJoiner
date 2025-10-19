@@ -11,6 +11,13 @@ local REQUEST_DELAY = 1.0 -- agora requisita a cada 1 segundo
 local MAIN_LOOP_WAIT = 0.5
 
 --------------------------------------------------------
+-- ⏳ DELAY INICIAL (5 SEGUNDOS)
+--------------------------------------------------------
+print("⏳ Aguardando 5 segundos antes de iniciar o script...")
+task.wait(5)
+print("🚀 Iniciando execução...")
+
+--------------------------------------------------------
 -- SERVIÇOS & REQ
 --------------------------------------------------------
 local HttpService = game:GetService("HttpService")

@@ -164,7 +164,6 @@ end
 --------------------------------------------------------
 -- LOOP PRINCIPAL
 --------------------------------------------------------
--- 🚀 Agora sem delay inicial
 print("🔎 Verificação completa dos Brainrots...")
 
 local brainrots = checarBrainrots(LIMITE_GERACAO)
@@ -185,12 +184,19 @@ while true do
 
 	if server then
 		print("➡️ Teleportando para novo servidor:", server.id)
-		pcall(function()
+		local ok, err = pcall(function()
 			TeleportService:TeleportToPlaceInstance(JOGO_ID, server.id, Players.LocalPlayer)
 		end)
+
+		if not ok then
+			warn("⚠️ Falha ao teleportar:", err)
+			print("⏳ Aguardando 11 segundos antes da próxima tentativa (falha de teleport).")
+			task.wait(11)
+		else
+			task.wait(1)
+		end
 	else
 		warn("❌ Nenhum servidor disponível. Tentará novamente em 1 segundo.")
+		task.wait(1)
 	end
-
-	task.wait(1)
 end

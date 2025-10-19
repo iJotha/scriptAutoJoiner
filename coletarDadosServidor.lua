@@ -7,11 +7,8 @@ local SOM_ID = "rbxassetid://9118823101"
 local PROXY_URL = "http://127.0.0.1:3000"
 local APP_URL = "https://renderbots.onrender.com/api/report"
 local VPS_ID = "vps_" .. game.JobId
-
--- Frequência das requisições (1 requisição por segundo)
-local REQUEST_DELAY = 1.0
--- Delay entre cada tentativa de teleporte caso falhe
-local RETRY_DELAY = 5.0
+local REQUEST_DELAY = 1.0 -- agora requisita a cada 1 segundo
+local MAIN_LOOP_WAIT = 0.5
 
 --------------------------------------------------------
 -- SERVIÇOS & REQ
@@ -61,14 +58,25 @@ local function checarBrainrots(limite)
 		if podiums then
 			for _, podium in ipairs(podiums:GetChildren()) do
 				for _, obj in ipairs(podium:GetDescendants()) do
-					if (obj:IsA("TextLabel") or obj:IsA("TextBox")) and obj.Text and obj.Text:find("/S") then
+					if (obj:IsA("TextLabel") or obj:IsA("TextBox")) and obj.Text and obj.Text:find("/s") then
 						local valor = converterTextoGerado(obj.Text)
 						if valor >= limite then
 							local displayNameObj
 							if obj.Name == "Generation" and obj.Parent then
 								displayNameObj = obj.Parent:FindFirstChild("DisplayName")
+							else
+								local caminho = obj:GetFullName()
+								local caminhoDisplay = caminho:gsub("%.Generation$", ".DisplayName")
+								pcall(function()
+									displayNameObj = game:FindFirstChild(caminhoDisplay)
+								end)
 							end
-							local nome = (displayNameObj and displayNameObj:IsA("TextLabel") and displayNameObj.Text) or "Desconhecido"
+
+							local nome = "Desconhecido"
+							if displayNameObj and displayNameObj:IsA("TextLabel") then
+								nome = displayNameObj.Text
+							end
+
 							table.insert(encontrados, {nome = nome, valor = valor})
 						end
 					end
@@ -95,10 +103,10 @@ end
 -- SAFE REQUEST
 --------------------------------------------------------
 local function safeRequest(url)
-	local ok, response = pcall(function()
-		return req({Url = url, Method = "GET"})
-	end)
-	if not ok or not response or not response.Success then
+	task.wait(REQUEST_DELAY)
+	local response = req({Url = url, Method = "GET"})
+	if not response or not response.Success then
+		warn("❌ Falha na requisição HTTP.")
 		return nil
 	end
 	return response
@@ -108,20 +116,23 @@ end
 -- RESERVAR SERVIDOR
 --------------------------------------------------------
 local function reserveServer()
-	local url = string.format("%s/reserveServer?placeId=%s&sessionId=%s", PROXY_URL, JOGO_ID, SESSION_ID)
+	local url = string.format(
+		"%s/reserveServer?placeId=%s&sessionId=%s&minPlayers=1&maxPlayers=8",
+		PROXY_URL,
+		JOGO_ID,
+		SESSION_ID
+	)
 	local response = safeRequest(url)
 	if not response then return nil end
 
 	local data = HttpService:JSONDecode(response.Body or response.body)
-	if not data or not data.success or not data.server then
-		return nil
-	end
+	if not data.success then return nil end
 
 	return data.server
 end
 
 --------------------------------------------------------
--- ENVIAR PARA APP CENTRAL
+-- ENVIAR PARA APP CENTRAL (com delay)
 --------------------------------------------------------
 local function enviarParaAppCentral(nome, valor, jobId)
 	local payload = {
@@ -146,13 +157,18 @@ local function enviarParaAppCentral(nome, valor, jobId)
 	else
 		warn("❌ Falha ao enviar para app central")
 	end
+
+	task.wait(3)
 end
 
 --------------------------------------------------------
--- LOOP INICIAL
+-- LOOP PRINCIPAL
 --------------------------------------------------------
-print("🔎 Verificação inicial dos Brainrots...")
+-- 🚀 Agora sem delay inicial
+print("🔎 Verificação completa dos Brainrots...")
+
 local brainrots = checarBrainrots(LIMITE_GERACAO)
+
 if #brainrots > 0 then
 	tocarSom()
 	for _, br in ipairs(brainrots) do
@@ -162,39 +178,19 @@ else
 	print("❌ Nenhum Brainrot lucrativo encontrado.")
 end
 
---------------------------------------------------------
--- LOOP DE TROCA DE SERVIDOR
---------------------------------------------------------
-local ultimoServerID = nil
-local tentativa = 0
-
-print("⚙️ Iniciando loop de requisições...")
-
+-- 🌐 Após a verificação, começa a requisitar 1x por segundo ao proxy
 while true do
-	task.wait(REQUEST_DELAY)
-	tentativa += 1
-
+	print("🌐 Tentando trocar de servidor...")
 	local server = reserveServer()
+
 	if server then
-		-- Ignora se for o mesmo servidor recebido antes
-		if ultimoServerID ~= server.id then
-			print(string.format("➡️ [%d] Novo servidor recebido: %s", tentativa, server.id))
-			ultimoServerID = server.id
-
-			local ok, result = pcall(function()
-				TeleportService:TeleportToPlaceInstance(JOGO_ID, server.id, Players.LocalPlayer)
-			end)
-
-			if ok then
-				print("🚀 Tentando entrar no servidor:", server.id)
-			else
-				warn("⚠️ Falha ao teleportar. Tentará novamente em " .. RETRY_DELAY .. "s.")
-				task.wait(RETRY_DELAY)
-			end
-		else
-			print(string.format("⚠️ [%d] Servidor repetido recebido (%s), aguardando o próximo.", tentativa, server.id))
-		end
+		print("➡️ Teleportando para novo servidor:", server.id)
+		pcall(function()
+			TeleportService:TeleportToPlaceInstance(JOGO_ID, server.id, Players.LocalPlayer)
+		end)
 	else
-		print(string.format("❌ [%d] Nenhum servidor disponível. Nova tentativa em %ss.", tentativa, REQUEST_DELAY))
+		warn("❌ Nenhum servidor disponível. Tentará novamente em 1 segundo.")
 	end
+
+	task.wait(1)
 end

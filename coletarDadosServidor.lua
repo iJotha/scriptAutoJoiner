@@ -11,7 +11,7 @@ local REQUEST_DELAY = 1.0 -- agora requisita a cada 1 segundo
 local MAIN_LOOP_WAIT = 0.5
 
 --------------------------------------------------------
--- ⏳ AGUARDAR O JOGO CARREGAR (em vez do delay fixo)
+-- ⏳ AGUARDAR O JOGO CARREGAR (forma reativa e confiável)
 --------------------------------------------------------
 print("⏳ Aguardando o jogo carregar completamente...")
 
@@ -19,12 +19,26 @@ if not game:IsLoaded() then
 	game.Loaded:Wait()
 end
 
--- Garante que o Workspace e os elementos do mapa estejam acessíveis
+local Workspace = game:GetService("Workspace")
+
+-- Espera o objeto "Plots" realmente existir no workspace
+if not Workspace:FindFirstChild("Plots") then
+	print("🧱 Aguardando objeto 'Plots' ser criado no Workspace...")
+	repeat
+		local child = Workspace.ChildAdded:Wait()
+		if child.Name == "Plots" then
+			break
+		end
+	until Workspace:FindFirstChild("Plots")
+end
+
+-- Espera os podiums internos carregarem (mapa completo)
+local plots = Workspace:WaitForChild("Plots")
 repeat
 	task.wait(0.5)
-until game:GetService("Workspace") and game.Workspace:FindFirstChild("Plots")
+until #plots:GetChildren() > 0
 
-print("🚀 Jogo carregado! Iniciando execução...")
+print("🚀 Jogo e mapas totalmente carregados! Iniciando execução...")
 
 --------------------------------------------------------
 -- SERVIÇOS & REQ
@@ -32,7 +46,6 @@ print("🚀 Jogo carregado! Iniciando execução...")
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
 
 local req = request or http_request
 if not req then

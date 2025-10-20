@@ -7,51 +7,8 @@ local SOM_ID = "rbxassetid://9118823101"
 local PROXY_URL = "http://127.0.0.1:3000"
 local APP_URL = "https://renderbots.onrender.com/api/report"
 local VPS_ID = "vps_" .. game.JobId
-local REQUEST_DELAY = 1.0
+local REQUEST_DELAY = 2.0
 local MAIN_LOOP_WAIT = 0.5
-
---------------------------------------------------------
--- ⏳ AGUARDAR O JOGO CARREGAR (forma reativa e confiável)
---------------------------------------------------------
-print("⏳ Aguardando o jogo carregar completamente...")
-
-if not game:IsLoaded() then
-	game.Loaded:Wait()
-end
-
-local Workspace = game:GetService("Workspace")
-
--- Espera o objeto "Plots" realmente existir no workspace
-if not Workspace:FindFirstChild("Plots") then
-	print("🧱 Aguardando objeto 'Plots' ser criado no Workspace...")
-	repeat
-		local child = Workspace.ChildAdded:Wait()
-		if child.Name == "Plots" then
-			break
-		end
-	until Workspace:FindFirstChild("Plots")
-end
-
-local plots = Workspace:WaitForChild("Plots")
-
--- Espera **qualquer podium** existir em qualquer plot
-local function podiumsExistem()
-	for _, plot in ipairs(plots:GetChildren()) do
-		local podiums = plot:FindFirstChild("AnimalPodiums")
-		if podiums and #podiums:GetChildren() > 0 then
-			print("✅ Plot com podiums encontrado:", plot.Name)
-			return true
-		end
-	end
-	return false
-end
-
-repeat
-	task.wait(0.5)
-	print("🔹 Checando se algum podium existe...")
-until podiumsExistem()
-
-print("🚀 Jogo e pelo menos um podium carregados! Iniciando execução...")
 
 --------------------------------------------------------
 -- SERVIÇOS & REQ
@@ -59,6 +16,7 @@ print("🚀 Jogo e pelo menos um podium carregados! Iniciando execução...")
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
 
 local req = request or http_request
 if not req then
@@ -158,18 +116,12 @@ end
 -- RESERVAR SERVIDOR
 --------------------------------------------------------
 local function reserveServer()
-	local url = string.format(
-		"%s/reserveServer?placeId=%s&sessionId=%s&minPlayers=1&maxPlayers=8",
-		PROXY_URL,
-		JOGO_ID,
-		SESSION_ID
-	)
+	local url = string.format("%s/reserveServer?placeId=%s&sessionId=%s&minPlayers=1&maxPlayers=8",
+		PROXY_URL, JOGO_ID, SESSION_ID)
 	local response = safeRequest(url)
 	if not response then return nil end
-
 	local data = HttpService:JSONDecode(response.Body or response.body)
 	if not data.success then return nil end
-
 	return data.server
 end
 
@@ -206,7 +158,9 @@ end
 --------------------------------------------------------
 -- LOOP PRINCIPAL
 --------------------------------------------------------
-print("🔎 Verificação completa dos Brainrots...")
+task.wait(10) -- ⏱️ alterado de 5 para 10 segundos
+
+print("🔎 Primeira verificação completa dos Brainrots...")
 
 local brainrots = checarBrainrots(LIMITE_GERACAO)
 
@@ -219,26 +173,18 @@ else
 	print("❌ Nenhum Brainrot lucrativo encontrado.")
 end
 
--- 🌐 Após a verificação, começa a requisitar 1x por segundo ao proxy
 while true do
 	print("🌐 Tentando trocar de servidor...")
-	local server = reserveServer()
 
+	local server = reserveServer()
 	if server then
 		print("➡️ Teleportando para novo servidor:", server.id)
-		local ok, err = pcall(function()
+		pcall(function()
 			TeleportService:TeleportToPlaceInstance(JOGO_ID, server.id, Players.LocalPlayer)
 		end)
-
-		if not ok then
-			warn("⚠️ Falha ao teleportar:", err)
-			print("⏳ Aguardando 11 segundos antes da próxima tentativa (falha de teleport).")
-			task.wait(11)
-		else
-			task.wait(1)
-		end
 	else
-		warn("❌ Nenhum servidor disponível. Tentará novamente em 1 segundo.")
-		task.wait(1)
+		warn("❌ Nenhum servidor disponível. Tentará novamente em 5 segundos.")
 	end
+
+	task.wait(5)
 end

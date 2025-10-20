@@ -158,7 +158,7 @@ end
 --------------------------------------------------------
 -- LOOP PRINCIPAL
 --------------------------------------------------------
-task.wait(10) -- ⏱️ alterado de 5 para 10 segundos
+task.wait(20) -- ⏱️ alterado de 5 para 10 segundos
 
 print("🔎 Primeira verificação completa dos Brainrots...")
 

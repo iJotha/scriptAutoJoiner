@@ -186,5 +186,5 @@ while true do
 		warn("❌ Nenhum servidor disponível. Tentará novamente em 5 segundos.")
 	end
 
-	task.wait(5)
+	task.wait(1)
 end

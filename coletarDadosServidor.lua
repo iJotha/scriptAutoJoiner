@@ -7,7 +7,7 @@ local SOM_ID = "rbxassetid://9118823101"
 local PROXY_URL = "http://127.0.0.1:3000"
 local APP_URL = "https://renderbots.onrender.com/api/report"
 local VPS_ID = "vps_" .. game.JobId
-local REQUEST_DELAY = 1.0 -- agora requisita a cada 1 segundo
+local REQUEST_DELAY = 1.0
 local MAIN_LOOP_WAIT = 0.5
 
 --------------------------------------------------------
@@ -32,13 +32,26 @@ if not Workspace:FindFirstChild("Plots") then
 	until Workspace:FindFirstChild("Plots")
 end
 
--- Espera os podiums internos carregarem (mapa completo)
 local plots = Workspace:WaitForChild("Plots")
+
+-- Espera **qualquer podium** existir em qualquer plot
+local function podiumsExistem()
+	for _, plot in ipairs(plots:GetChildren()) do
+		local podiums = plot:FindFirstChild("AnimalPodiums")
+		if podiums and #podiums:GetChildren() > 0 then
+			print("✅ Plot com podiums encontrado:", plot.Name)
+			return true
+		end
+	end
+	return false
+end
+
 repeat
 	task.wait(0.5)
-until #plots:GetChildren() > 0
+	print("🔹 Checando se algum podium existe...")
+until podiumsExistem()
 
-print("🚀 Jogo e mapas totalmente carregados! Iniciando execução...")
+print("🚀 Jogo e pelo menos um podium carregados! Iniciando execução...")
 
 --------------------------------------------------------
 -- SERVIÇOS & REQ

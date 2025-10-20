@@ -11,11 +11,20 @@ local REQUEST_DELAY = 1.0 -- agora requisita a cada 1 segundo
 local MAIN_LOOP_WAIT = 0.5
 
 --------------------------------------------------------
--- ⏳ DELAY INICIAL (5 SEGUNDOS)
+-- ⏳ AGUARDAR O JOGO CARREGAR (em vez do delay fixo)
 --------------------------------------------------------
-print("⏳ Aguardando 5 segundos antes de iniciar o script...")
-task.wait(5)
-print("🚀 Iniciando execução...")
+print("⏳ Aguardando o jogo carregar completamente...")
+
+if not game:IsLoaded() then
+	game.Loaded:Wait()
+end
+
+-- Garante que o Workspace e os elementos do mapa estejam acessíveis
+repeat
+	task.wait(0.5)
+until game:GetService("Workspace") and game.Workspace:FindFirstChild("Plots")
+
+print("🚀 Jogo carregado! Iniciando execução...")
 
 --------------------------------------------------------
 -- SERVIÇOS & REQ

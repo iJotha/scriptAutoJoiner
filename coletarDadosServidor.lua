@@ -25,6 +25,35 @@ if not req then
 end
 
 --------------------------------------------------------
+-- ESPERAR O CARREGAMENTO COMPLETO DO JOGADOR
+--------------------------------------------------------
+print("⏳ Aguardando jogador entrar completamente no servidor...")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+
+-- Aguarda o personagem estar com aparência carregada
+if not character:FindFirstChild("Humanoid") then
+	character:WaitForChild("Humanoid")
+end
+player.CharacterAppearanceLoaded:Wait()
+
+-- Aguarda o personagem estar realmente no chão
+local humanoid = character:WaitForChild("Humanoid")
+repeat
+	task.wait(0.2)
+until humanoid.FloorMaterial ~= Enum.Material.Air
+
+print("✅ Jogador está completamente carregado e tocando o chão!")
+
+-- Aguarda o mapa principal carregar (Plots)
+repeat
+	task.wait(0.5)
+until Workspace:FindFirstChild("Plots")
+
+print("🗺️ Mapa carregado. Iniciando execução...")
+
+--------------------------------------------------------
 -- GERA ID ÚNICO
 --------------------------------------------------------
 local SESSION_ID = "session_" .. HttpService:GenerateGUID(false)
@@ -158,8 +187,6 @@ end
 --------------------------------------------------------
 -- LOOP PRINCIPAL
 --------------------------------------------------------
-task.wait(20) -- ⏱️ alterado de 5 para 10 segundos
-
 print("🔎 Primeira verificação completa dos Brainrots...")
 
 local brainrots = checarBrainrots(LIMITE_GERACAO)

@@ -25,7 +25,7 @@ if not req then
 end
 
 --------------------------------------------------------
--- ESPERAR O CARREGAMENTO COMPLETO DO JOGADOR (com logs detalhados)
+-- ESPERAR O CARREGAMENTO BÁSICO DO JOGADOR
 --------------------------------------------------------
 print("⏳ Aguardando jogador entrar completamente no servidor...")
 
@@ -43,46 +43,15 @@ print("🔍 Aguardando Character ser criado...")
 local character = player.Character or player.CharacterAdded:Wait()
 print("✅ Character detectado:", character.Name)
 
--- Etapa 3: Esperar o Humanoid
+-- Etapa 3: Esperar o Humanoid dentro do Character
 print("🔍 Procurando Humanoid dentro do Character...")
-if not character:FindFirstChild("Humanoid") then
-	print("🕓 Humanoid ainda não encontrado, aguardando...")
-	character:WaitForChild("Humanoid")
-end
+local humanoid = character:FindFirstChild("Humanoid") or character:WaitForChild("Humanoid")
 print("✅ Humanoid encontrado.")
 
--- Etapa 4: Esperar CharacterAppearanceLoaded (se disponível)
-if player.CharacterAppearanceLoaded then
-	print("🔍 Aguardando CharacterAppearanceLoaded finalizar...")
-	local ok = pcall(function()
-		player.CharacterAppearanceLoaded:Wait()
-	end)
-	if ok then
-		print("✅ Aparência completamente carregada.")
-	else
-		print("⚠️ Falha leve ao aguardar CharacterAppearanceLoaded (pode ser ignorado).")
-	end
-else
-	print("ℹ️ player.CharacterAppearanceLoaded não disponível neste ambiente.")
-end
-
--- Etapa 5: Esperar o jogador tocar o chão
-print("🔍 Aguardando o jogador tocar o chão...")
-local humanoid = character:WaitForChild("Humanoid")
-repeat
-	task.wait(0.2)
-	print("🦶 Ainda no ar... aguardando FloorMaterial mudar de Air.")
-until humanoid.FloorMaterial ~= Enum.Material.Air
-print("✅ Jogador agora está tocando o chão.")
-
--- Etapa 6: Esperar mapa carregar
-print("🔍 Aguardando Workspace.Plots ser carregado...")
-repeat
-	task.wait(0.5)
-	print("🗺️ Verificando Workspace.Plots...")
-until Workspace:FindFirstChild("Plots")
-print("✅ Workspace.Plots carregado com sucesso.")
-print("🚀 Tudo carregado! Iniciando execução principal...")
+-- Espera 3 segundos adicionais antes de continuar
+print("⏳ Aguardando 3 segundos adicionais para garantir estabilidade...")
+task.wait(3)
+print("🚀 Jogador totalmente pronto. Iniciando execução principal...")
 
 --------------------------------------------------------
 -- GERA ID ÚNICO

@@ -25,6 +25,13 @@ if not req then
 end
 
 --------------------------------------------------------
+-- DELAY INICIAL
+--------------------------------------------------------
+print("🕒 Aguardando 5 segundos antes de iniciar o script...")
+task.wait(5)
+print("✅ Delay inicial concluído. Iniciando verificação de carregamento do jogador...")
+
+--------------------------------------------------------
 -- ESPERAR O CARREGAMENTO BÁSICO DO JOGADOR
 --------------------------------------------------------
 print("⏳ Aguardando jogador entrar completamente no servidor...")

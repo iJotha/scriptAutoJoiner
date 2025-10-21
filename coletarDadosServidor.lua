@@ -29,16 +29,30 @@ end
 --------------------------------------------------------
 print("⏳ Aguardando jogador entrar completamente no servidor...")
 
+-- Espera pelo LocalPlayer existir (corrige 'attempt to index nil with Character')
 local player = Players.LocalPlayer
+if not player then
+	player = Players.PlayerAdded:Wait()
+end
+
+-- Espera o Character/ Humanoid
 local character = player.Character or player.CharacterAdded:Wait()
 
--- Aguarda o personagem estar com aparência carregada
+-- Se o Character ainda não tem Humanoid, aguarda
 if not character:FindFirstChild("Humanoid") then
 	character:WaitForChild("Humanoid")
 end
-player.CharacterAppearanceLoaded:Wait()
 
--- Aguarda o personagem estar realmente no chão
+-- Aguarda CharacterAppearanceLoaded se disponível (alguns ambientes podem não expor)
+if player.CharacterAppearanceLoaded then
+	-- protege com pcall caso ambiente custom não exponha exatamente como esperado
+	local ok = pcall(function() player.CharacterAppearanceLoaded:Wait() end)
+	if not ok then
+		-- se falhar, não é fatal — continuamos após garantir humanoid
+	end
+end
+
+-- Aguarda o humanoid existir de novo e checa floor
 local humanoid = character:WaitForChild("Humanoid")
 repeat
 	task.wait(0.2)

@@ -25,47 +25,64 @@ if not req then
 end
 
 --------------------------------------------------------
--- ESPERAR O CARREGAMENTO COMPLETO DO JOGADOR
+-- ESPERAR O CARREGAMENTO COMPLETO DO JOGADOR (com logs detalhados)
 --------------------------------------------------------
 print("⏳ Aguardando jogador entrar completamente no servidor...")
 
--- Espera pelo LocalPlayer existir (corrige 'attempt to index nil with Character')
+-- Etapa 1: Esperar pelo LocalPlayer
+print("🔍 Verificando Players.LocalPlayer...")
 local player = Players.LocalPlayer
 if not player then
+	print("🕓 Players.LocalPlayer ainda não existe, aguardando PlayerAdded...")
 	player = Players.PlayerAdded:Wait()
 end
+print("✅ LocalPlayer detectado:", player.Name)
 
--- Espera o Character/ Humanoid
+-- Etapa 2: Esperar o Character
+print("🔍 Aguardando Character ser criado...")
 local character = player.Character or player.CharacterAdded:Wait()
+print("✅ Character detectado:", character.Name)
 
--- Se o Character ainda não tem Humanoid, aguarda
+-- Etapa 3: Esperar o Humanoid
+print("🔍 Procurando Humanoid dentro do Character...")
 if not character:FindFirstChild("Humanoid") then
+	print("🕓 Humanoid ainda não encontrado, aguardando...")
 	character:WaitForChild("Humanoid")
 end
+print("✅ Humanoid encontrado.")
 
--- Aguarda CharacterAppearanceLoaded se disponível (alguns ambientes podem não expor)
+-- Etapa 4: Esperar CharacterAppearanceLoaded (se disponível)
 if player.CharacterAppearanceLoaded then
-	-- protege com pcall caso ambiente custom não exponha exatamente como esperado
-	local ok = pcall(function() player.CharacterAppearanceLoaded:Wait() end)
-	if not ok then
-		-- se falhar, não é fatal — continuamos após garantir humanoid
+	print("🔍 Aguardando CharacterAppearanceLoaded finalizar...")
+	local ok = pcall(function()
+		player.CharacterAppearanceLoaded:Wait()
+	end)
+	if ok then
+		print("✅ Aparência completamente carregada.")
+	else
+		print("⚠️ Falha leve ao aguardar CharacterAppearanceLoaded (pode ser ignorado).")
 	end
+else
+	print("ℹ️ player.CharacterAppearanceLoaded não disponível neste ambiente.")
 end
 
--- Aguarda o humanoid existir de novo e checa floor
+-- Etapa 5: Esperar o jogador tocar o chão
+print("🔍 Aguardando o jogador tocar o chão...")
 local humanoid = character:WaitForChild("Humanoid")
 repeat
 	task.wait(0.2)
+	print("🦶 Ainda no ar... aguardando FloorMaterial mudar de Air.")
 until humanoid.FloorMaterial ~= Enum.Material.Air
+print("✅ Jogador agora está tocando o chão.")
 
-print("✅ Jogador está completamente carregado e tocando o chão!")
-
--- Aguarda o mapa principal carregar (Plots)
+-- Etapa 6: Esperar mapa carregar
+print("🔍 Aguardando Workspace.Plots ser carregado...")
 repeat
 	task.wait(0.5)
+	print("🗺️ Verificando Workspace.Plots...")
 until Workspace:FindFirstChild("Plots")
-
-print("🗺️ Mapa carregado. Iniciando execução...")
+print("✅ Workspace.Plots carregado com sucesso.")
+print("🚀 Tudo carregado! Iniciando execução principal...")
 
 --------------------------------------------------------
 -- GERA ID ÚNICO

@@ -28,7 +28,7 @@ end
 -- DELAY INICIAL
 --------------------------------------------------------
 print("🕒 Aguardando 5 segundos antes de iniciar o script...")
-task.wait(5)
+--task.wait(5)
 print("✅ Delay inicial concluído. Iniciando verificação de carregamento do jogador...")
 
 --------------------------------------------------------

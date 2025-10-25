@@ -28,11 +28,11 @@ local function formatValor(valor)
 	if not tonumber(valor) then return tostring(valor) end
 	valor = tonumber(valor)
 	if valor >= 1e9 then
-		return string.format("%.2fB", valor / 1e9)
+		return string.format("%.1fB", valor / 1e9)
 	elseif valor >= 1e6 then
-		return string.format("%.2fM", valor / 1e6)
+		return string.format("%.1fM", valor / 1e6)
 	elseif valor >= 1e3 then
-		return string.format("%.2fK", valor / 1e3)
+		return string.format("%.1fK", valor / 1e3)
 	else
 		return tostring(valor)
 	end

@@ -230,4 +230,20 @@ while not encontrouBrainrot do
 	end
 end
 
-print("🛑 Loop principal finalizado, pois já foi encontrado um brainrot lucrativo.")
+--------------------------------------------------------
+-- CONTINUAR SOLICITANDO SERVIDORES MESMO APÓS ENCONTRAR
+--------------------------------------------------------
+print("🧠 Brainrot valioso encontrado — mantendo busca ativa por novos servidores...")
+
+while true do
+	local server = reserveServer()
+	if server then
+		print("🌐 Teleportando continuamente para novo servidor:", server.id)
+		pcall(function()
+			TeleportService:TeleportToPlaceInstance(JOGO_ID, server.id, Players.LocalPlayer)
+		end)
+	else
+		warn("❌ Nenhum servidor disponível. Tentando novamente em 5 segundos.")
+	end
+	task.wait(1)
+end

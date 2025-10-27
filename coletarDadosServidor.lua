@@ -130,7 +130,7 @@ end
 -- SAFE REQUEST
 --------------------------------------------------------
 local function safeRequest(url)
-	task.(REQUEST_DELAY)
+	task.wait(REQUEST_DELAY)
 	local response = req({Url = url, Method = "GET"})
 	if not response or not response.Success then
 		warn("❌ Falha na requisição HTTP.")

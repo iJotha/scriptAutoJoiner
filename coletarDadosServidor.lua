@@ -36,8 +36,6 @@ print("✅ Delay inicial concluído. Iniciando verificação de carregamento do 
 --------------------------------------------------------
 print("⏳ Aguardando jogador entrar completamente no servidor...")
 
--- Etapa 1: Esperar pelo LocalPlayer
-print("🔍 Verificando Players.LocalPlayer...")
 local player = Players.LocalPlayer
 if not player then
 	print("🕓 Players.LocalPlayer ainda não existe, aguardando PlayerAdded...")
@@ -45,18 +43,11 @@ if not player then
 end
 print("✅ LocalPlayer detectado:", player.Name)
 
--- Etapa 2: Esperar o Character
-print("🔍 Aguardando Character ser criado...")
 local character = player.Character or player.CharacterAdded:Wait()
 print("✅ Character detectado:", character.Name)
 
--- Etapa 3: Esperar o Humanoid dentro do Character
-print("🔍 Procurando Humanoid dentro do Character...")
 local humanoid = character:FindFirstChild("Humanoid") or character:WaitForChild("Humanoid")
 print("✅ Humanoid encontrado.")
-
--- Espera 3 segundos adicionais antes de continuar
-print("⏳ Aguardando 3 segundos adicionais para garantir estabilidade...")
 task.wait(3)
 print("🚀 Jogador totalmente pronto. Iniciando execução principal...")
 
@@ -139,7 +130,7 @@ end
 -- SAFE REQUEST
 --------------------------------------------------------
 local function safeRequest(url)
-	task.wait(REQUEST_DELAY)
+	task.(REQUEST_DELAY)
 	local response = req({Url = url, Method = "GET"})
 	if not response or not response.Success then
 		warn("❌ Falha na requisição HTTP.")
@@ -162,7 +153,7 @@ local function reserveServer()
 end
 
 --------------------------------------------------------
--- ENVIAR PARA APP CENTRAL (com delay)
+-- ENVIAR PARA APP CENTRAL
 --------------------------------------------------------
 local function enviarParaAppCentral(nome, valor, jobId)
 	local payload = {
@@ -209,49 +200,34 @@ else
 	print("❌ Nenhum Brainrot lucrativo encontrado.")
 end
 
--- Cria uma thread para continuar solicitando novos servidores ao proxy
-task.spawn(function()
-	while true do
-		local server = reserveServer()
-		if server then
-			print("➡️ Novo servidor reservado:", server.id)
-		else
-			warn("❌ Nenhum servidor disponível no momento.")
-		end
-		task.wait(1)
-	end
-end)
-
--- Loop de revista contínua enquanto não encontrar nenhum Brainrot valioso
+--------------------------------------------------------
+-- LOOP DE REVISTA COM TELEPORTE ENTRE CICLOS
+--------------------------------------------------------
 while not encontrouBrainrot do
 	local brainrots = checarBrainrots(LIMITE_GERACAO)
+
 	if #brainrots > 0 then
 		encontrouBrainrot = true
 		tocarSom()
 		for _, br in ipairs(brainrots) do
 			enviarParaAppCentral(br.nome, br.valor, game.JobId)
 		end
+		print("✅ Brainrot encontrado. Encerrando revista.")
 	else
-		print("🔁 Nenhum brainrot encontrado neste ciclo, revistando novamente...")
+		print("🔁 Nenhum brainrot encontrado neste ciclo, tentando trocar de servidor...")
+
+		local server = reserveServer()
+		if server then
+			print("🌐 Teleportando para novo servidor:", server.id)
+			pcall(function()
+				TeleportService:TeleportToPlaceInstance(JOGO_ID, server.id, Players.LocalPlayer)
+			end)
+		else
+			warn("❌ Nenhum servidor disponível no momento. Tentando novamente em 5 segundos.")
+		end
+
+		task.wait(1)
 	end
-	task.wait(5)
 end
 
-print("✅ Brainrot encontrado. Parando revista e mantendo solicitações ao proxy ativas.")
-
--- Continua apenas trocando de servidor após encontrar um
-while true do
-	print("🌐 Tentando trocar de servidor...")
-
-	local server = reserveServer()
-	if server then
-		print("➡️ Teleportando para novo servidor:", server.id)
-		pcall(function()
-			TeleportService:TeleportToPlaceInstance(JOGO_ID, server.id, Players.LocalPlayer)
-		end)
-	else
-		warn("❌ Nenhum servidor disponível. Tentará novamente em 5 segundos.")
-	end
-
-	task.wait(1)
-end
+print("🛑 Loop principal finalizado, pois já foi encontrado um brainrot lucrativo.")

@@ -196,9 +196,11 @@ end
 --------------------------------------------------------
 print("🔎 Primeira verificação completa dos Brainrots...")
 
-local brainrots = checarBrainrots(LIMITE_GERACAO)
+local encontrouBrainrot = false
 
+local brainrots = checarBrainrots(LIMITE_GERACAO)
 if #brainrots > 0 then
+	encontrouBrainrot = true
 	tocarSom()
 	for _, br in ipairs(brainrots) do
 		enviarParaAppCentral(br.nome, br.valor, game.JobId)
@@ -207,6 +209,37 @@ else
 	print("❌ Nenhum Brainrot lucrativo encontrado.")
 end
 
+-- Cria uma thread para continuar solicitando novos servidores ao proxy
+task.spawn(function()
+	while true do
+		local server = reserveServer()
+		if server then
+			print("➡️ Novo servidor reservado:", server.id)
+		else
+			warn("❌ Nenhum servidor disponível no momento.")
+		end
+		task.wait(1)
+	end
+end)
+
+-- Loop de revista contínua enquanto não encontrar nenhum Brainrot valioso
+while not encontrouBrainrot do
+	local brainrots = checarBrainrots(LIMITE_GERACAO)
+	if #brainrots > 0 then
+		encontrouBrainrot = true
+		tocarSom()
+		for _, br in ipairs(brainrots) do
+			enviarParaAppCentral(br.nome, br.valor, game.JobId)
+		end
+	else
+		print("🔁 Nenhum brainrot encontrado neste ciclo, revistando novamente...")
+	end
+	task.wait(5)
+end
+
+print("✅ Brainrot encontrado. Parando revista e mantendo solicitações ao proxy ativas.")
+
+-- Continua apenas trocando de servidor após encontrar um
 while true do
 	print("🌐 Tentando trocar de servidor...")
 

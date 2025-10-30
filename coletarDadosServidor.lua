@@ -11,6 +11,15 @@ local REQUEST_DELAY = 2.0
 local MAIN_LOOP_WAIT = 0.5
 
 --------------------------------------------------------
+-- LISTA DE BRAINROTS IMPORTANTES (IGNORAM LIMITE)
+--------------------------------------------------------
+local BRAINROTS_IMPORTANTES = {
+	["Burrito Bandito"] = true,
+	["Los Nooo My Hotspotsitos"] = true,
+	["Quesadilla Crocodila"] = true,
+}
+
+--------------------------------------------------------
 -- SERVIÇOS & REQ
 --------------------------------------------------------
 local HttpService = game:GetService("HttpService")
@@ -87,23 +96,25 @@ local function checarBrainrots(limite)
 				for _, obj in ipairs(podium:GetDescendants()) do
 					if (obj:IsA("TextLabel") or obj:IsA("TextBox")) and obj.Text and obj.Text:find("/s") then
 						local valor = converterTextoGerado(obj.Text)
-						if valor >= limite then
-							local displayNameObj
-							if obj.Name == "Generation" and obj.Parent then
-								displayNameObj = obj.Parent:FindFirstChild("DisplayName")
-							else
-								local caminho = obj:GetFullName()
-								local caminhoDisplay = caminho:gsub("%.Generation$", ".DisplayName")
-								pcall(function()
-									displayNameObj = game:FindFirstChild(caminhoDisplay)
-								end)
-							end
+						local displayNameObj
 
-							local nome = "Desconhecido"
-							if displayNameObj and displayNameObj:IsA("TextLabel") then
-								nome = displayNameObj.Text
-							end
+						if obj.Name == "Generation" and obj.Parent then
+							displayNameObj = obj.Parent:FindFirstChild("DisplayName")
+						else
+							local caminho = obj:GetFullName()
+							local caminhoDisplay = caminho:gsub("%.Generation$", ".DisplayName")
+							pcall(function()
+								displayNameObj = game:FindFirstChild(caminhoDisplay)
+							end)
+						end
 
+						local nome = "Desconhecido"
+						if displayNameObj and displayNameObj:IsA("TextLabel") then
+							nome = displayNameObj.Text
+						end
+
+						-- ✅ Entra se for >= limite ou estiver na lista importante
+						if valor >= limite or BRAINROTS_IMPORTANTES[nome] then
 							table.insert(encontrados, {nome = nome, valor = valor})
 						end
 					end
@@ -138,7 +149,8 @@ local function checarModelos(limite)
 
 				if displayNameValue and generationValue then
 					local valor = converterTextoGerado(generationValue)
-					if valor >= limite then
+					-- ✅ Também checa lista de importantes
+					if valor >= limite or BRAINROTS_IMPORTANTES[displayNameValue] then
 						table.insert(encontrados, {nome = displayNameValue, valor = valor})
 					end
 				end

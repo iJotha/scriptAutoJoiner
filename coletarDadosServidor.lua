@@ -73,7 +73,7 @@ local function converterTextoGerado(texto)
 end
 
 --------------------------------------------------------
--- VERIFICAÇÃO COMPLETA
+-- VERIFICAÇÃO COMPLETA (PODIUMS)
 --------------------------------------------------------
 local function checarBrainrots(limite)
 	local encontrados = {}
@@ -111,6 +111,41 @@ local function checarBrainrots(limite)
 			end
 		end
 	end
+	return encontrados
+end
+
+--------------------------------------------------------
+-- 🔍 NOVA FUNÇÃO: VERIFICAÇÃO DE MODELOS
+--------------------------------------------------------
+local function checarModelos(limite)
+	local encontrados = {}
+	local plotsFolder = Workspace:FindFirstChild("Plots")
+	if not plotsFolder then return encontrados end
+
+	for _, plot in ipairs(plotsFolder:GetChildren()) do
+		for _, model in ipairs(plot:GetChildren()) do
+			if model:IsA("Model") then
+				local displayNameValue = nil
+				local generationValue = nil
+
+				for _, desc in ipairs(model:GetDescendants()) do
+					if desc.Name == "DisplayName" and (desc:IsA("TextLabel") or desc:IsA("TextBox") or desc:IsA("StringValue")) then
+						displayNameValue = desc.Text or desc.Value
+					elseif desc.Name == "Generation" and (desc:IsA("TextLabel") or desc:IsA("TextBox") or desc:IsA("StringValue")) then
+						generationValue = desc.Text or desc.Value
+					end
+				end
+
+				if displayNameValue and generationValue then
+					local valor = converterTextoGerado(generationValue)
+					if valor >= limite then
+						table.insert(encontrados, {nome = displayNameValue, valor = valor})
+					end
+				end
+			end
+		end
+	end
+
 	return encontrados
 end
 
@@ -190,11 +225,16 @@ print("🔎 Primeira verificação completa dos Brainrots...")
 local encontrouBrainrot = false
 
 local brainrots = checarBrainrots(LIMITE_GERACAO)
-if #brainrots > 0 then
+local modelos = checarModelos(LIMITE_GERACAO)
+
+if #brainrots > 0 or #modelos > 0 then
 	encontrouBrainrot = true
 	tocarSom()
 	for _, br in ipairs(brainrots) do
 		enviarParaAppCentral(br.nome, br.valor, game.JobId)
+	end
+	for _, m in ipairs(modelos) do
+		enviarParaAppCentral(m.nome, m.valor, game.JobId)
 	end
 else
 	print("❌ Nenhum Brainrot lucrativo encontrado.")
@@ -205,16 +245,20 @@ end
 --------------------------------------------------------
 while not encontrouBrainrot do
 	local brainrots = checarBrainrots(LIMITE_GERACAO)
+	local modelos = checarModelos(LIMITE_GERACAO)
 
-	if #brainrots > 0 then
+	if #brainrots > 0 or #modelos > 0 then
 		encontrouBrainrot = true
 		tocarSom()
 		for _, br in ipairs(brainrots) do
 			enviarParaAppCentral(br.nome, br.valor, game.JobId)
 		end
-		print("✅ Brainrot encontrado. Encerrando revista.")
+		for _, m in ipairs(modelos) do
+			enviarParaAppCentral(m.nome, m.valor, game.JobId)
+		end
+		print("✅ Brainrot ou Model lucrativo encontrado. Encerrando revista.")
 	else
-		print("🔁 Nenhum brainrot encontrado neste ciclo, tentando trocar de servidor...")
+		print("🔁 Nenhum item encontrado neste ciclo, tentando trocar de servidor...")
 
 		local server = reserveServer()
 		if server then
@@ -233,7 +277,7 @@ end
 --------------------------------------------------------
 -- CONTINUAR SOLICITANDO SERVIDORES MESMO APÓS ENCONTRAR
 --------------------------------------------------------
-print("🧠 Brainrot valioso encontrado — mantendo busca ativa por novos servidores...")
+print("🧠 Item valioso encontrado — mantendo busca ativa por novos servidores...")
 
 while true do
 	local server = reserveServer()

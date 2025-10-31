@@ -17,6 +17,8 @@ local BRAINROTS_IMPORTANTES = {
 	["Burrito Bandito"] = true,
 	["Los Nooo My Hotspotsitos"] = true,
 	["Quesadilla Crocodila"] = true,
+	["Tentacolo Tecnico"] = true,
+	["Jacko Spaventosa"] = true,
 }
 
 --------------------------------------------------------

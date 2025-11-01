@@ -21,7 +21,7 @@ local FIXED_PLACE_ID = 109983668079237 -- 🔒 ID fixo
 
 -- apenas entradas lançadas após o início do script
 local startTimestamp = os.time()
-print("[LibasJoiner] Iniciado.")
+print("[LibasFinder] Iniciado.")
 
 -- ======== FUNÇÃO PARA FORMATAR NÚMEROS GRANDES ========
 local function formatValor(valor)
@@ -108,7 +108,7 @@ end)
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, -50, 0, 40)
 title.Position = UDim2.new(0, 15, 0, 0)
-title.Text = "Libas Joiner (Beta)"
+title.Text = "Libas Finder (Beta)"
 title.TextColor3 = Color3.fromRGB(230, 230, 230)
 title.BackgroundTransparency = 1
 title.TextScaled = true
@@ -256,4 +256,4 @@ spawn(function()
 	end
 end)
 
-print("[LibasJoiner] GUI carregada. Aguardando novas entradas...")
+print("[LibasFinder] GUI carregada. Aguardando novas entradas...")

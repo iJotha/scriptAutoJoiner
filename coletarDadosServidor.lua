@@ -14,9 +14,7 @@ local MAIN_LOOP_WAIT = 0.5
 -- LISTA DE BRAINROTS IMPORTANTES (IGNORAM LIMITE)
 --------------------------------------------------------
 local BRAINROTS_IMPORTANTES = {
-	["Bombombini Gusini"] = true,
-	["Bombardiro Crocodilo"] = true,
-	["Frigo Camelo"] = true,
+	["..."] = true,
 }
 
 --------------------------------------------------------

@@ -111,7 +111,6 @@ local function checarBrainrots(limite)
 							nome = displayNameObj.Text
 						end
 
-						-- ✅ Entra se for >= limite ou estiver na lista importante
 						if valor >= limite or BRAINROTS_IMPORTANTES[nome] then
 							table.insert(encontrados, {nome = nome, valor = valor})
 						end
@@ -147,7 +146,6 @@ local function checarModelos(limite)
 
 				if displayNameValue and generationValue then
 					local valor = converterTextoGerado(generationValue)
-					-- ✅ Também checa lista de importantes
 					if valor >= limite or BRAINROTS_IMPORTANTES[displayNameValue] then
 						table.insert(encontrados, {nome = displayNameValue, valor = valor})
 					end
@@ -233,18 +231,27 @@ end
 print("🔎 Primeira verificação completa dos Brainrots...")
 
 local encontrouBrainrot = false
+local encontradosTotal = {}
 
 local brainrots = checarBrainrots(LIMITE_GERACAO)
 local modelos = checarModelos(LIMITE_GERACAO)
 
-if #brainrots > 0 or #modelos > 0 then
+-- Juntar todos os resultados em uma única lista
+for _, br in ipairs(brainrots) do table.insert(encontradosTotal, br) end
+for _, m in ipairs(modelos) do table.insert(encontradosTotal, m) end
+
+if #encontradosTotal > 0 then
 	encontrouBrainrot = true
 	tocarSom()
-	for _, br in ipairs(brainrots) do
-		enviarParaAppCentral(br.nome, br.valor, game.JobId)
-	end
-	for _, m in ipairs(modelos) do
-		enviarParaAppCentral(m.nome, m.valor, game.JobId)
+
+	-- 🔽 Ordenar em ordem decrescente de valor (maior geração primeiro)
+	table.sort(encontradosTotal, function(a, b)
+		return a.valor > b.valor
+	end)
+
+	-- 📤 Enviar todos após checagem
+	for _, item in ipairs(encontradosTotal) do
+		enviarParaAppCentral(item.nome, item.valor, game.JobId)
 	end
 else
 	print("❌ Nenhum Brainrot lucrativo encontrado.")
@@ -254,18 +261,26 @@ end
 -- LOOP DE REVISTA COM TELEPORTE ENTRE CICLOS
 --------------------------------------------------------
 while not encontrouBrainrot do
+	encontradosTotal = {}
+
 	local brainrots = checarBrainrots(LIMITE_GERACAO)
 	local modelos = checarModelos(LIMITE_GERACAO)
 
-	if #brainrots > 0 or #modelos > 0 then
+	for _, br in ipairs(brainrots) do table.insert(encontradosTotal, br) end
+	for _, m in ipairs(modelos) do table.insert(encontradosTotal, m) end
+
+	if #encontradosTotal > 0 then
 		encontrouBrainrot = true
 		tocarSom()
-		for _, br in ipairs(brainrots) do
-			enviarParaAppCentral(br.nome, br.valor, game.JobId)
+
+		table.sort(encontradosTotal, function(a, b)
+			return a.valor > b.valor
+		end)
+
+		for _, item in ipairs(encontradosTotal) do
+			enviarParaAppCentral(item.nome, item.valor, game.JobId)
 		end
-		for _, m in ipairs(modelos) do
-			enviarParaAppCentral(m.nome, m.valor, game.JobId)
-		end
+
 		print("✅ Brainrot ou Model lucrativo encontrado. Encerrando revista.")
 	else
 		print("🔁 Nenhum item encontrado neste ciclo, tentando trocar de servidor...")

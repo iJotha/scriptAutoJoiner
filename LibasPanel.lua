@@ -19,7 +19,7 @@ local BUTTON_PADDING = 8
 local FIXED_PLACE_ID = 109983668079237
 local startTimestamp = os.time()
 
-print("[LibasJoiner] Finder iniciado.")
+print("[LibasFinder] Finder iniciado.")
 
 --------------------------------------------------------
 -- UTILITÁRIOS
@@ -89,7 +89,7 @@ closeButton.MouseButton1Click:Connect(function() screenGui:Destroy() end)
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, -50, 0, 40)
 title.Position = UDim2.new(0, 15, 0, 0)
-title.Text = "Libas Joiner"
+title.Text = "Libas Finder"
 title.TextColor3 = Color3.fromRGB(230, 230, 230)
 title.BackgroundTransparency = 1
 title.TextScaled = true
@@ -536,5 +536,5 @@ end)
 
 
 
-print("[LibasJoiner] Auto Joiner ativo.")
+print("[LibasFinder] Auto Joiner ativo.")
 

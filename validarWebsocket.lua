@@ -6,7 +6,7 @@ local Players = game:GetService("Players")
 
 -- ==== CONFIGURE AQUI ANTES DE SUBIR AO GITHUB ====
 local APP_VERIFY_URL = "https://blast-garden-passion-month.trycloudflare.com/api/verify" -- <--- troque para seu endpoint real
-local LOADER_URL     = "https://raw.githubusercontent.com/iJotha/scriptAutoJoiner/refs/heads/main/LibasPanel.lua" -- loader final
+local LOADER_URL     = "https://raw.githubusercontent.com/iJotha/scriptAutoJoiner/refs/heads/main/LibasFinderWebsocket.lua" -- loader final
 -- ==================================================
 
 local req = request or http_request

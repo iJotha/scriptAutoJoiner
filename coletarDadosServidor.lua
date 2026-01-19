@@ -1,159 +1,207 @@
+
 --------------------------------------------------------
 -- CONFIGURAÇÕES
 --------------------------------------------------------
 local LIMITE_GERACAO = 10_000_000 -- 10M/s
 local JOGO_ID = game.PlaceId
 local SOM_ID = "rbxassetid://9118823101"
-local PROXY_URL = "http://127.0.0.1:3000"
-local APP_URL = "https://renderbots.onrender.com/api/report"
+local PROXY_URL = "http://127.0.0.1:8081"
+local APP_URL = "https://sticker-fundamentals-statutes-mason.trycloudflare.com/api/report"
 local VPS_ID = "vps_" .. game.JobId
 local REQUEST_DELAY = 2.0
 local MAIN_LOOP_WAIT = 0.5
 
---------------------------------------------------------
--- LISTA DE BRAINROTS IMPORTANTES (IGNORAM LIMITE)
---------------------------------------------------------
-local BRAINROTS_IMPORTANTES = {
-	["..."] = true,
-}
-
---------------------------------------------------------
--- SERVIÇOS & REQ
---------------------------------------------------------
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
+print("🚀 [VPS] Script iniciado | JobId:", game.JobId)
+
+--------------------------------------------------------
+-- LISTA DE BRAINROTS IMPORTANTES
+--------------------------------------------------------
+local BRAINROTS_IMPORTANTES = {
+	["Bunito Bunito Spinito"] = true,
+}
+
+--------------------------------------------------------
+-- LISTA DE BRAINROTS BLOQUEADOS (NUNCA ENVIAR)
+--------------------------------------------------------
+local BRAINROTS_BLOQUEADOS = {
+	["Lucky Block"] = true,
+}
+
+--------------------------------------------------------
+-- SERVIÇOS & REQ
+--------------------------------------------------------
 local req = request or http_request
 if not req then
-	warn("Exploit não suporta request")
+	warn("❌ [VPS] Exploit não suporta request")
 	return
 end
 
 --------------------------------------------------------
--- DELAY INICIAL
+-- SAFE REQUEST
 --------------------------------------------------------
-print("🕒 Aguardando 5 segundos antes de iniciar o script...")
---task.wait(5)
-print("✅ Delay inicial concluído. Iniciando verificação de carregamento do jogador...")
+local function performRequest(options, timeoutSeconds)
+	timeoutSeconds = timeoutSeconds or 10
+	local done = false
+	local ok, result, err
 
---------------------------------------------------------
--- ESPERAR O CARREGAMENTO BÁSICO DO JOGADOR
---------------------------------------------------------
-print("⏳ Aguardando jogador entrar completamente no servidor...")
+	task.spawn(function()
+		local success, res = pcall(function()
+			return req(options)
+		end)
+		if success then
+			ok = true
+			result = res
+		else
+			ok = false
+			err = res
+		end
+		done = true
+	end)
 
-local player = Players.LocalPlayer
-if not player then
-	print("🕓 Players.LocalPlayer ainda não existe, aguardando PlayerAdded...")
-	player = Players.PlayerAdded:Wait()
+	local waited = 0
+	while not done and waited < timeoutSeconds do
+		task.wait(0.1)
+		waited += 0.1
+	end
+
+	if not done then
+		warn("⏱️ [HTTP] Timeout")
+		return false, "timeout"
+	end
+
+	return ok, ok and result or err
 end
-print("✅ LocalPlayer detectado:", player.Name)
 
+--------------------------------------------------------
+-- 🔌 WEBSOCKET
+--------------------------------------------------------
+local WS_URL = "wss://sticker-fundamentals-statutes-mason.trycloudflare.com"
+local wsLib = (websocket and websocket.connect) or (WebSocket and WebSocket.connect)
+local ws
+
+local function conectarWS()
+	if not wsLib then
+		warn("❌ [WS] Exploit sem suporte a WebSocket")
+		return
+	end
+
+	print("🔌 [WS] Conectando...")
+
+	local ok, socket = pcall(function()
+		return wsLib(WS_URL)
+	end)
+
+	if not ok or not socket then
+		warn("⚠️ [WS] Falha ao conectar. Tentando novamente em 5s...")
+		task.wait(5)
+		return conectarWS()
+	end
+
+	ws = socket
+	print("🟢 [WS] Conectado com sucesso")
+
+	ws.OnClose:Connect(function()
+		warn("🔴 [WS] Conexão encerrada. Reconectando em 3s...")
+		task.wait(0.1)
+		conectarWS()
+	end)
+end
+
+task.spawn(conectarWS)
+
+local function enviarViaWS(payload)
+	if not ws or not ws.Send then
+		warn("⚠️ [WS] Não conectado — envio ignorado")
+		return
+	end
+
+	task.spawn(function()
+		local ok, err = pcall(function()
+			ws:Send(HttpService:JSONEncode(payload))
+		end)
+
+		if ok then
+			print("📡 [WS] Dados enviados")
+		else
+			warn("❌ [WS] Falha no envio:", err)
+		end
+	end)
+end
+
+--------------------------------------------------------
+-- ESPERAR PLAYER
+--------------------------------------------------------
+print("⏳ [PLAYER] Aguardando LocalPlayer...")
+local player = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local character = player.Character or player.CharacterAdded:Wait()
-print("✅ Character detectado:", character.Name)
-
-local humanoid = character:FindFirstChild("Humanoid") or character:WaitForChild("Humanoid")
-print("✅ Humanoid encontrado.")
-task.wait(3)
-print("🚀 Jogador totalmente pronto. Iniciando execução principal...")
+character:WaitForChild("Humanoid")
+print("✅ [PLAYER] Jogador pronto:", player.Name)
+task.wait(2)
 
 --------------------------------------------------------
--- GERA ID ÚNICO
---------------------------------------------------------
-local SESSION_ID = "session_" .. HttpService:GenerateGUID(false)
-print("🆔 Sessão iniciada:", SESSION_ID)
-
---------------------------------------------------------
--- CONVERSÃO DE TEXTO
+-- CONVERSÃO (GENERATION)
 --------------------------------------------------------
 local function converterTextoGerado(texto)
 	texto = texto:upper()
-	local valor = texto:match("%$([%d%.]+)")
-	local sufixo = texto:match("%d+([KMB])/S") or ""
+	local valor = texto:match("([%d%.]+)")
+	local sufixo = texto:match("([KMB])/S") or texto:match("([KMB])$")
 	valor = tonumber(valor)
 	if not valor then return 0 end
-	if sufixo == "K" then valor *= 1_000
-	elseif sufixo == "M" then valor *= 1_000_000
-	elseif sufixo == "B" then valor *= 1_000_000_000 end
+	if sufixo == "K" then valor *= 1e3
+	elseif sufixo == "M" then valor *= 1e6
+	elseif sufixo == "B" then valor *= 1e9 end
 	return valor
 end
 
 --------------------------------------------------------
--- VERIFICAÇÃO COMPLETA (PODIUMS)
+-- 🔍 REVISTA (DEBRIS) - NOVA ESTRUTURA
 --------------------------------------------------------
-local function checarBrainrots(limite)
+local function checarBrainrotsDebris(limite)
+	print("🔍 [SCAN] Iniciando varredura em Debris...")
 	local encontrados = {}
-	local plotsFolder = Workspace:FindFirstChild("Plots")
-	if not plotsFolder then return encontrados end
 
-	for _, plot in ipairs(plotsFolder:GetChildren()) do
-		local podiums = plot:FindFirstChild("AnimalPodiums")
-		if podiums then
-			for _, podium in ipairs(podiums:GetChildren()) do
-				for _, obj in ipairs(podium:GetDescendants()) do
-					if (obj:IsA("TextLabel") or obj:IsA("TextBox")) and obj.Text and obj.Text:find("/s") then
-						local valor = converterTextoGerado(obj.Text)
-						local displayNameObj
-
-						if obj.Name == "Generation" and obj.Parent then
-							displayNameObj = obj.Parent:FindFirstChild("DisplayName")
-						else
-							local caminho = obj:GetFullName()
-							local caminhoDisplay = caminho:gsub("%.Generation$", ".DisplayName")
-							pcall(function()
-								displayNameObj = game:FindFirstChild(caminhoDisplay)
-							end)
-						end
-
-						local nome = "Desconhecido"
-						if displayNameObj and displayNameObj:IsA("TextLabel") then
-							nome = displayNameObj.Text
-						end
-
-						if valor >= limite or BRAINROTS_IMPORTANTES[nome] then
-							table.insert(encontrados, {nome = nome, valor = valor})
-						end
-					end
-				end
-			end
-		end
+	local debris = Workspace:FindFirstChild("Debris")
+	if not debris then
+		warn("⚠️ [SCAN] Pasta Debris não encontrada")
+		return encontrados
 	end
-	return encontrados
-end
 
---------------------------------------------------------
--- 🔍 NOVA FUNÇÃO: VERIFICAÇÃO DE MODELOS
---------------------------------------------------------
-local function checarModelos(limite)
-	local encontrados = {}
-	local plotsFolder = Workspace:FindFirstChild("Plots")
-	if not plotsFolder then return encontrados end
+	for _, obj in ipairs(debris:GetDescendants()) do
+		if obj.Name == "FastOverheadTemplate" then
+			local overhead = obj:FindFirstChild("AnimalOverhead")
+			if not overhead then continue end
 
-	for _, plot in ipairs(plotsFolder:GetChildren()) do
-		for _, model in ipairs(plot:GetChildren()) do
-			if model:IsA("Model") then
-				local displayNameValue = nil
-				local generationValue = nil
+			local displayName = overhead:FindFirstChild("DisplayName")
+			local generation = overhead:FindFirstChild("Generation")
 
-				for _, desc in ipairs(model:GetDescendants()) do
-					if desc.Name == "DisplayName" and (desc:IsA("TextLabel") or desc:IsA("TextBox") or desc:IsA("StringValue")) then
-						displayNameValue = desc.Text or desc.Value
-					elseif desc.Name == "Generation" and (desc:IsA("TextLabel") or desc:IsA("TextBox") or desc:IsA("StringValue")) then
-						generationValue = desc.Text or desc.Value
-					end
+			if displayName and generation
+				and displayName:IsA("TextLabel")
+				and generation:IsA("TextLabel") then
+
+				local nome = displayName.Text
+				local valor = converterTextoGerado(generation.Text)
+
+				-- ⛔ BLOQUEIO ABSOLUTO
+				if BRAINROTS_BLOQUEADOS[nome] then
+					print(string.format("🚫 [SKIP] %s bloqueado (blacklist)", nome))
+					continue
 				end
 
-				if displayNameValue and generationValue then
-					local valor = converterTextoGerado(generationValue)
-					if valor >= limite or BRAINROTS_IMPORTANTES[displayNameValue] then
-						table.insert(encontrados, {nome = displayNameValue, valor = valor})
-					end
+				-- ✅ REGRA DE ENVIO
+				if valor >= limite or BRAINROTS_IMPORTANTES[nome] then
+					print(string.format("💰 [FOUND] %s | Valor: %s", nome, valor))
+					table.insert(encontrados, { nome = nome, valor = valor })
 				end
 			end
 		end
 	end
 
+	print("📊 [SCAN] Total encontrados:", #encontrados)
 	return encontrados
 end
 
@@ -161,6 +209,7 @@ end
 -- SOM
 --------------------------------------------------------
 local function tocarSom()
+	print("🔔 [SOUND] Tocando alerta sonoro")
 	local som = Instance.new("Sound")
 	som.SoundId = SOM_ID
 	som.Volume = 2
@@ -170,35 +219,61 @@ local function tocarSom()
 end
 
 --------------------------------------------------------
--- SAFE REQUEST
---------------------------------------------------------
-local function safeRequest(url)
-	task.wait(REQUEST_DELAY)
-	local response = req({Url = url, Method = "GET"})
-	if not response or not response.Success then
-		warn("❌ Falha na requisição HTTP.")
-		return nil
-	end
-	return response
-end
-
---------------------------------------------------------
 -- RESERVAR SERVIDOR
 --------------------------------------------------------
 local function reserveServer()
-	local url = string.format("%s/reserveServer?placeId=%s&sessionId=%s&minPlayers=1&maxPlayers=8",
-		PROXY_URL, JOGO_ID, SESSION_ID)
-	local response = safeRequest(url)
-	if not response then return nil end
-	local data = HttpService:JSONDecode(response.Body or response.body)
-	if not data.success then return nil end
+	print("🌐 [SERVER] Solicitando novo servidor...")
+	local url = string.format(
+		"%s/reserveServer?placeId=%s&sessionId=%s&minPlayers=1&maxPlayers=8",
+		PROXY_URL, JOGO_ID, "session_" .. game.JobId
+	)
+
+	local ok, res = performRequest({ Url = url, Method = "GET" }, 10)
+	if not ok or not res then
+		warn("❌ [SERVER] Falha ao reservar servidor")
+		return nil
+	end
+
+	local body =
+		res.Body
+		or res.body
+		or res.ResponseBody
+		or res.response
+		or res.Response
+
+	if type(body) ~= "string" then
+		warn("❌ [SERVER] Corpo da resposta inválido:", typeof(body))
+		return nil
+	end
+
+	print("🧪 [DEBUG] Body recebido:", body)
+
+	local success, data = pcall(function()
+		return HttpService:JSONDecode(body)
+	end)
+
+	if not success then
+		warn("❌ [SERVER] Falha ao decodificar JSON do proxy")
+		return nil
+	end
+
+	if not data.success then
+		warn("⚠️ [SERVER] Proxy recusou servidor:", data.message or "sem mensagem")
+		return nil
+	end
+
+
+	print("✅ [SERVER] Servidor reservado:", data.server.id)
 	return data.server
+
 end
 
 --------------------------------------------------------
 -- ENVIAR PARA APP CENTRAL
 --------------------------------------------------------
 local function enviarParaAppCentral(nome, valor, jobId)
+	print(string.format("📤 [SEND] Enviando %s | Generation %s", nome, valor))
+
 	local payload = {
 		jobId = jobId or game.JobId,
 		nome = nome,
@@ -207,112 +282,483 @@ local function enviarParaAppCentral(nome, valor, jobId)
 		timestamp = os.time()
 	}
 
-	local ok, res = pcall(function()
-		return req({
-			Url = APP_URL,
-			Method = "POST",
-			Headers = {["Content-Type"] = "application/json"},
-			Body = HttpService:JSONEncode(payload)
-		})
-	end)
+	enviarViaWS({ type = "server_update", server = payload })
 
-	if ok then
-		print("📡 Enviado ao app central:", nome, valor, "(JobID:", game.JobId .. ")")
-	else
-		warn("❌ Falha ao enviar para app central")
-	end
-
-	task.wait(3)
+	performRequest({
+		Url = APP_URL,
+		Method = "POST",
+		Headers = { ["Content-Type"] = "application/json" },
+		Body = HttpService:JSONEncode(payload)
+	}, 10)
 end
 
 --------------------------------------------------------
--- LOOP PRINCIPAL
+-- LOOP PRINCIPAL (MESMA LÓGICA DO SCRIPT ANTIGO)
 --------------------------------------------------------
-print("🔎 Primeira verificação completa dos Brainrots...")
+--------------------------------------------------------
+-- LOOP PRINCIPAL (CORRIGIDO)
+--------------------------------------------------------
+print("🔁 [MAIN] Iniciando loop principal")
 
-local encontrouBrainrot = false
-local encontradosTotal = {}
+local brainrotJaEncontrado = false
 
-local brainrots = checarBrainrots(LIMITE_GERACAO)
-local modelos = checarModelos(LIMITE_GERACAO)
+while true do
+	--------------------------------------------------------
+	-- 1️⃣ REVISTA (APENAS SE AINDA NÃO ACHOU)
+	--------------------------------------------------------
+	local encontrados = {}
 
--- Juntar todos os resultados em uma única lista
-for _, br in ipairs(brainrots) do table.insert(encontradosTotal, br) end
-for _, m in ipairs(modelos) do table.insert(encontradosTotal, m) end
-
-if #encontradosTotal > 0 then
-	encontrouBrainrot = true
-	tocarSom()
-
-	-- 🔽 Ordenar em ordem decrescente de valor (maior geração primeiro)
-	table.sort(encontradosTotal, function(a, b)
-		return a.valor > b.valor
-	end)
-
-	-- 📤 Enviar todos após checagem
-	for _, item in ipairs(encontradosTotal) do
-		enviarParaAppCentral(item.nome, item.valor, game.JobId)
+	if not brainrotJaEncontrado then
+		encontrados = checarBrainrotsDebris(LIMITE_GERACAO)
 	end
-else
-	print("❌ Nenhum Brainrot lucrativo encontrado.")
-end
 
---------------------------------------------------------
--- LOOP DE REVISTA COM TELEPORTE ENTRE CICLOS
---------------------------------------------------------
-while not encontrouBrainrot do
-	encontradosTotal = {}
-
-	local brainrots = checarBrainrots(LIMITE_GERACAO)
-	local modelos = checarModelos(LIMITE_GERACAO)
-
-	for _, br in ipairs(brainrots) do table.insert(encontradosTotal, br) end
-	for _, m in ipairs(modelos) do table.insert(encontradosTotal, m) end
-
-	if #encontradosTotal > 0 then
-		encontrouBrainrot = true
+	--------------------------------------------------------
+	-- 2️⃣ SE ENCONTROU BRAINROTS PELA PRIMEIRA VEZ
+	--------------------------------------------------------
+	if not brainrotJaEncontrado and #encontrados > 0 then
+		brainrotJaEncontrado = true
 		tocarSom()
 
-		table.sort(encontradosTotal, function(a, b)
+		-- Ordena do MAIOR para o MENOR
+		table.sort(encontrados, function(a, b)
 			return a.valor > b.valor
 		end)
 
-		for _, item in ipairs(encontradosTotal) do
+		print("📤 [MAIN] Enviando brainrots um por um...")
+
+		for i, item in ipairs(encontrados) do
+			print(string.format(
+				"📡 [QUEUE] (%d/%d) %s | Generation %s",
+				i, #encontrados, item.nome, item.valor
+			))
+
 			enviarParaAppCentral(item.nome, item.valor, game.JobId)
+			task.wait(0.3)
 		end
 
-		print("✅ Brainrot ou Model lucrativo encontrado. Encerrando revista.")
-	else
-		print("🔁 Nenhum item encontrado neste ciclo, tentando trocar de servidor...")
-
-		local server = reserveServer()
-		if server then
-			print("🌐 Teleportando para novo servidor:", server.id)
-			pcall(function()
-				TeleportService:TeleportToPlaceInstance(JOGO_ID, server.id, Players.LocalPlayer)
-			end)
-		else
-			warn("❌ Nenhum servidor disponível no momento. Tentando novamente em 5 segundos.")
-		end
-
-		task.wait(1)
+		print("✅ [MAIN] Brainrots enviados. A partir de agora NÃO haverá novas revistas.")
 	end
+
+	--------------------------------------------------------
+	-- 3️⃣ APENAS TROCAR DE SERVIDOR (SEM SCAN)
+	--------------------------------------------------------
+	local entrouEmServidor = false
+
+	while not entrouEmServidor do
+		print("🌐 [MAIN] Tentando obter servidor via proxy...")
+		local server = reserveServer()
+
+		if server and server.id then
+			print("🚪 [TP] Teleportando para servidor:", server.id)
+
+			local ok = pcall(function()
+				TeleportService:TeleportToPlaceInstance(
+					JOGO_ID,
+					server.id,
+					player
+				)
+			end)
+
+			if ok then
+				entrouEmServidor = true
+				print("🟢 [TP] Teleporte iniciado com sucesso")
+				break
+			else
+				warn("❌ [TP] Falha no Teleport — tentando outro servidor")
+			end
+		else
+			warn("⚠️ [MAIN] Proxy não retornou servidor válido")
+		end
+
+		-- ⛔ NÃO FAZ MAIS SCAN AQUI
+		task.wait(0.5)
+	end
+
+	--------------------------------------------------------
+	-- Segurança
+	--------------------------------------------------------
+	task.wait(MAIN_LOOP_WAIT)
+end
+
+
+
+--------------------------------------------------------
+-- CONFIGURAÇÕES
+--------------------------------------------------------
+local LIMITE_GERACAO = 10_000_000 -- 10M/s
+local JOGO_ID = game.PlaceId
+local SOM_ID = "rbxassetid://9118823101"
+local PROXY_URL = "http://127.0.0.1:8081"
+local APP_URL = "https://sticker-fundamentals-statutes-mason.trycloudflare.com/api/report"
+local VPS_ID = "vps_" .. game.JobId
+local REQUEST_DELAY = 2.0
+local MAIN_LOOP_WAIT = 0.5
+
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+
+print("🚀 [VPS] Script iniciado | JobId:", game.JobId)
+
+--------------------------------------------------------
+-- LISTA DE BRAINROTS IMPORTANTES
+--------------------------------------------------------
+local BRAINROTS_IMPORTANTES = {
+	["Bunito Bunito Spinito"] = true,
+}
+
+--------------------------------------------------------
+-- LISTA DE BRAINROTS BLOQUEADOS (NUNCA ENVIAR)
+--------------------------------------------------------
+local BRAINROTS_BLOQUEADOS = {
+	["Lucky Block"] = true,
+}
+
+--------------------------------------------------------
+-- SERVIÇOS & REQ
+--------------------------------------------------------
+local req = request or http_request
+if not req then
+	warn("❌ [VPS] Exploit não suporta request")
+	return
 end
 
 --------------------------------------------------------
--- CONTINUAR SOLICITANDO SERVIDORES MESMO APÓS ENCONTRAR
+-- SAFE REQUEST
 --------------------------------------------------------
-print("🧠 Item valioso encontrado — mantendo busca ativa por novos servidores...")
+local function performRequest(options, timeoutSeconds)
+	timeoutSeconds = timeoutSeconds or 10
+	local done = false
+	local ok, result, err
+
+	task.spawn(function()
+		local success, res = pcall(function()
+			return req(options)
+		end)
+		if success then
+			ok = true
+			result = res
+		else
+			ok = false
+			err = res
+		end
+		done = true
+	end)
+
+	local waited = 0
+	while not done and waited < timeoutSeconds do
+		task.wait(0.1)
+		waited += 0.1
+	end
+
+	if not done then
+		warn("⏱️ [HTTP] Timeout")
+		return false, "timeout"
+	end
+
+	return ok, ok and result or err
+end
+
+--------------------------------------------------------
+-- 🔌 WEBSOCKET
+--------------------------------------------------------
+local WS_URL = "wss://sticker-fundamentals-statutes-mason.trycloudflare.com"
+local wsLib = (websocket and websocket.connect) or (WebSocket and WebSocket.connect)
+local ws
+
+local function conectarWS()
+	if not wsLib then
+		warn("❌ [WS] Exploit sem suporte a WebSocket")
+		return
+	end
+
+	print("🔌 [WS] Conectando...")
+
+	local ok, socket = pcall(function()
+		return wsLib(WS_URL)
+	end)
+
+	if not ok or not socket then
+		warn("⚠️ [WS] Falha ao conectar. Tentando novamente em 5s...")
+		task.wait(5)
+		return conectarWS()
+	end
+
+	ws = socket
+	print("🟢 [WS] Conectado com sucesso")
+
+	ws.OnClose:Connect(function()
+		warn("🔴 [WS] Conexão encerrada. Reconectando em 3s...")
+		task.wait(0.1)
+		conectarWS()
+	end)
+end
+
+task.spawn(conectarWS)
+
+local function enviarViaWS(payload)
+	if not ws or not ws.Send then
+		warn("⚠️ [WS] Não conectado — envio ignorado")
+		return
+	end
+
+	task.spawn(function()
+		local ok, err = pcall(function()
+			ws:Send(HttpService:JSONEncode(payload))
+		end)
+
+		if ok then
+			print("📡 [WS] Dados enviados")
+		else
+			warn("❌ [WS] Falha no envio:", err)
+		end
+	end)
+end
+
+--------------------------------------------------------
+-- ESPERAR PLAYER
+--------------------------------------------------------
+print("⏳ [PLAYER] Aguardando LocalPlayer...")
+local player = Players.LocalPlayer or Players.PlayerAdded:Wait()
+local character = player.Character or player.CharacterAdded:Wait()
+character:WaitForChild("Humanoid")
+print("✅ [PLAYER] Jogador pronto:", player.Name)
+task.wait(2)
+
+--------------------------------------------------------
+-- CONVERSÃO (GENERATION)
+--------------------------------------------------------
+local function converterTextoGerado(texto)
+	texto = texto:upper()
+	local valor = texto:match("([%d%.]+)")
+	local sufixo = texto:match("([KMB])/S") or texto:match("([KMB])$")
+	valor = tonumber(valor)
+	if not valor then return 0 end
+	if sufixo == "K" then valor *= 1e3
+	elseif sufixo == "M" then valor *= 1e6
+	elseif sufixo == "B" then valor *= 1e9 end
+	return valor
+end
+
+--------------------------------------------------------
+-- 🔍 REVISTA (DEBRIS) - NOVA ESTRUTURA
+--------------------------------------------------------
+local function checarBrainrotsDebris(limite)
+	print("🔍 [SCAN] Iniciando varredura em Debris...")
+	local encontrados = {}
+
+	local debris = Workspace:FindFirstChild("Debris")
+	if not debris then
+		warn("⚠️ [SCAN] Pasta Debris não encontrada")
+		return encontrados
+	end
+
+	for _, obj in ipairs(debris:GetDescendants()) do
+		if obj.Name == "FastOverheadTemplate" then
+			local overhead = obj:FindFirstChild("AnimalOverhead")
+			if not overhead then continue end
+
+			local displayName = overhead:FindFirstChild("DisplayName")
+			local generation = overhead:FindFirstChild("Generation")
+
+			if displayName and generation
+				and displayName:IsA("TextLabel")
+				and generation:IsA("TextLabel") then
+
+				local nome = displayName.Text
+				local valor = converterTextoGerado(generation.Text)
+
+				-- ⛔ BLOQUEIO ABSOLUTO
+				if BRAINROTS_BLOQUEADOS[nome] then
+					print(string.format("🚫 [SKIP] %s bloqueado (blacklist)", nome))
+					continue
+				end
+
+				-- ✅ REGRA DE ENVIO
+				if valor >= limite or BRAINROTS_IMPORTANTES[nome] then
+					print(string.format("💰 [FOUND] %s | Valor: %s", nome, valor))
+					table.insert(encontrados, { nome = nome, valor = valor })
+				end
+			end
+		end
+	end
+
+	print("📊 [SCAN] Total encontrados:", #encontrados)
+	return encontrados
+end
+
+--------------------------------------------------------
+-- SOM
+--------------------------------------------------------
+local function tocarSom()
+	print("🔔 [SOUND] Tocando alerta sonoro")
+	local som = Instance.new("Sound")
+	som.SoundId = SOM_ID
+	som.Volume = 2
+	som.PlayOnRemove = true
+	som.Parent = Workspace
+	som:Destroy()
+end
+
+--------------------------------------------------------
+-- RESERVAR SERVIDOR
+--------------------------------------------------------
+local function reserveServer()
+	print("🌐 [SERVER] Solicitando novo servidor...")
+	local url = string.format(
+		"%s/reserveServer?placeId=%s&sessionId=%s&minPlayers=1&maxPlayers=8",
+		PROXY_URL, JOGO_ID, "session_" .. game.JobId
+	)
+
+	local ok, res = performRequest({ Url = url, Method = "GET" }, 10)
+	if not ok or not res then
+		warn("❌ [SERVER] Falha ao reservar servidor")
+		return nil
+	end
+
+	local body =
+		res.Body
+		or res.body
+		or res.ResponseBody
+		or res.response
+		or res.Response
+
+	if type(body) ~= "string" then
+		warn("❌ [SERVER] Corpo da resposta inválido:", typeof(body))
+		return nil
+	end
+
+	print("🧪 [DEBUG] Body recebido:", body)
+
+	local success, data = pcall(function()
+		return HttpService:JSONDecode(body)
+	end)
+
+	if not success then
+		warn("❌ [SERVER] Falha ao decodificar JSON do proxy")
+		return nil
+	end
+
+	if not data.success then
+		warn("⚠️ [SERVER] Proxy recusou servidor:", data.message or "sem mensagem")
+		return nil
+	end
+
+
+	print("✅ [SERVER] Servidor reservado:", data.server.id)
+	return data.server
+
+end
+
+--------------------------------------------------------
+-- ENVIAR PARA APP CENTRAL
+--------------------------------------------------------
+local function enviarParaAppCentral(nome, valor, jobId)
+	print(string.format("📤 [SEND] Enviando %s | Generation %s", nome, valor))
+
+	local payload = {
+		jobId = jobId or game.JobId,
+		nome = nome,
+		valor = valor,
+		vps = VPS_ID,
+		timestamp = os.time()
+	}
+
+	enviarViaWS({ type = "server_update", server = payload })
+
+	performRequest({
+		Url = APP_URL,
+		Method = "POST",
+		Headers = { ["Content-Type"] = "application/json" },
+		Body = HttpService:JSONEncode(payload)
+	}, 10)
+end
+
+--------------------------------------------------------
+-- LOOP PRINCIPAL (MESMA LÓGICA DO SCRIPT ANTIGO)
+--------------------------------------------------------
+--------------------------------------------------------
+-- LOOP PRINCIPAL (CORRIGIDO)
+--------------------------------------------------------
+print("🔁 [MAIN] Iniciando loop principal")
+
+local brainrotJaEncontrado = false
 
 while true do
-	local server = reserveServer()
-	if server then
-		print("🌐 Teleportando continuamente para novo servidor:", server.id)
-		pcall(function()
-			TeleportService:TeleportToPlaceInstance(JOGO_ID, server.id, Players.LocalPlayer)
-		end)
-	else
-		warn("❌ Nenhum servidor disponível. Tentando novamente em 5 segundos.")
+	--------------------------------------------------------
+	-- 1️⃣ REVISTA (APENAS SE AINDA NÃO ACHOU)
+	--------------------------------------------------------
+	local encontrados = {}
+
+	if not brainrotJaEncontrado then
+		encontrados = checarBrainrotsDebris(LIMITE_GERACAO)
 	end
-	task.wait(1)
+
+	--------------------------------------------------------
+	-- 2️⃣ SE ENCONTROU BRAINROTS PELA PRIMEIRA VEZ
+	--------------------------------------------------------
+	if not brainrotJaEncontrado and #encontrados > 0 then
+		brainrotJaEncontrado = true
+		tocarSom()
+
+		-- Ordena do MAIOR para o MENOR
+		table.sort(encontrados, function(a, b)
+			return a.valor > b.valor
+		end)
+
+		print("📤 [MAIN] Enviando brainrots um por um...")
+
+		for i, item in ipairs(encontrados) do
+			print(string.format(
+				"📡 [QUEUE] (%d/%d) %s | Generation %s",
+				i, #encontrados, item.nome, item.valor
+			))
+
+			enviarParaAppCentral(item.nome, item.valor, game.JobId)
+			task.wait(0.3)
+		end
+
+		print("✅ [MAIN] Brainrots enviados. A partir de agora NÃO haverá novas revistas.")
+	end
+
+	--------------------------------------------------------
+	-- 3️⃣ APENAS TROCAR DE SERVIDOR (SEM SCAN)
+	--------------------------------------------------------
+	local entrouEmServidor = false
+
+	while not entrouEmServidor do
+		print("🌐 [MAIN] Tentando obter servidor via proxy...")
+		local server = reserveServer()
+
+		if server and server.id then
+			print("🚪 [TP] Teleportando para servidor:", server.id)
+
+			local ok = pcall(function()
+				TeleportService:TeleportToPlaceInstance(
+					JOGO_ID,
+					server.id,
+					player
+				)
+			end)
+
+			if ok then
+				entrouEmServidor = true
+				print("🟢 [TP] Teleporte iniciado com sucesso")
+				break
+			else
+				warn("❌ [TP] Falha no Teleport — tentando outro servidor")
+			end
+		else
+			warn("⚠️ [MAIN] Proxy não retornou servidor válido")
+		end
+
+		-- ⛔ NÃO FAZ MAIS SCAN AQUI
+		task.wait(0.5)
+	end
+
+	--------------------------------------------------------
+	-- Segurança
+	--------------------------------------------------------
+	task.wait(MAIN_LOOP_WAIT)
 end
